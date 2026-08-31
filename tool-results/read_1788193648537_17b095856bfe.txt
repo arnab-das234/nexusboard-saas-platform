@@ -1,0 +1,2002 @@
+     1→# MASTER PROJECT PROMPT — ONLINE ESSAY WRITING COMPETITION MANAGEMENT SYSTEM
+     2→
+     3→## 1. PROJECT OVERVIEW
+     4→
+     5→Build a complete, production-ready **Online Essay Writing Competition Management System**.
+     6→
+     7→The system will be used to organize essay-writing competitions for school students.
+     8→
+     9→The application must support:
+    10→
+    11→* Student registration
+    12→* Teacher registration
+    13→* Teacher-assisted student registration
+    14→* Student profile management
+    15→* Age-based competition eligibility
+    16→* School information
+    17→* Registration fee collection
+    18→* Razorpay payment integration
+    19→* Email verification
+    20→* Competition notifications
+    21→* Essay PDF upload
+    22→* Secure file validation
+    23→* Cloudinary file storage
+    24→* Examiner management
+    25→* Multiple examiners evaluating the same essay
+    26→* Examiner marks, comments and justification
+    27→* OCR-assisted quotation/reference from essays
+    28→* Automatic average/final score calculation
+    29→* Administrative financial management
+    30→* Complete audit logging
+    31→* Admin dashboard
+    32→* Competition configuration
+    33→* Notification management
+    34→* Production deployment on Vercel
+    35→* Neon PostgreSQL database
+    36→* Resend email service
+    37→* Cloudinary file storage
+    38→
+    39→The system must be designed as a **real production application**, not as a demo, prototype, or toy project.
+    40→
+    41→---
+    42→
+    43→# 2. REQUIRED TECHNOLOGY STACK
+    44→
+    45→Use a modern, maintainable stack compatible with Vercel.
+    46→
+    47→Preferred stack:
+    48→
+    49→* Next.js with App Router
+    50→* TypeScript
+    51→* React
+    52→* Tailwind CSS
+    53→* shadcn/ui or equivalent professional component system
+    54→* PostgreSQL
+    55→* Neon PostgreSQL
+    56→* Prisma ORM or Drizzle ORM
+    57→* Resend for transactional emails
+    58→* Razorpay for payments
+    59→* Cloudinary for essay/file storage
+    60→* Server-side API routes / Server Actions where appropriate
+    61→* Secure authentication with role-based authorization
+    62→
+    63→Use environment variables for all secrets.
+    64→
+    65→Never hard-code:
+    66→
+    67→* Razorpay keys
+    68→* Database credentials
+    69→* Resend API keys
+    70→* Cloudinary credentials
+    71→* Authentication secrets
+    72→* Encryption keys
+    73→* Other sensitive configuration
+    74→
+    75→---
+    76→
+    77→# 3. IMPORTANT DEVELOPMENT RULE
+    78→
+    79→Do NOT immediately start generating random pages.
+    80→
+    81→First perform a complete project analysis.
+    82→
+    83→Before implementation:
+    84→
+    85→1. Understand all requirements.
+    86→2. Identify entities and relationships.
+    87→3. Design the database schema.
+    88→4. Design authentication and authorization.
+    89→5. Design all user roles.
+    90→6. Design payment lifecycle.
+    91→7. Design essay upload lifecycle.
+    92→8. Design examiner workflow.
+    93→9. Design audit logging.
+    94→10. Design admin configuration.
+    95→11. Design notification architecture.
+    96→12. Design deployment architecture.
+    97→13. Identify security risks.
+    98→14. Identify edge cases.
+    99→15. Prepare an implementation roadmap.
+   100→
+   101→Then implement the project incrementally.
+   102→
+   103→Do not make architectural decisions that will create unnecessary technical debt.
+   104→
+   105→---
+   106→
+   107→# 4. USER ROLES
+   108→
+   109→The system must support at least these roles:
+   110→
+   111→## SUPER ADMIN
+   112→
+   113→Full system access.
+   114→
+   115→Can:
+   116→
+   117→* Manage administrators
+   118→* Manage teachers
+   119→* Manage students
+   120→* Manage competitions
+   121→* Configure eligibility rules
+   122→* Configure registration fees
+   123→* View payments
+   124→* View financial reports
+   125→* Manage examiners
+   126→* Assign examiners
+   127→* View examination results
+   128→* Override scores where authorized
+   129→* Manage notifications
+   130→* Manage email templates
+   131→* View audit logs
+   132→* Manage system settings
+   133→* Manage file settings
+   134→* Manage security settings
+   135→* Manage Razorpay configuration
+   136→* Manage Cloudinary configuration
+   137→* Manage competition status
+   138→* Export data
+   139→* Manage application-wide settings
+   140→
+   141→---
+   142→
+   143→## ADMIN
+   144→
+   145→Administrative access according to permissions.
+   146→
+   147→Implement permission-based authorization instead of assuming every admin has unlimited access.
+   148→
+   149→Example permissions:
+   150→
+   151→* STUDENT_VIEW
+   152→* STUDENT_EDIT
+   153→* TEACHER_VIEW
+   154→* TEACHER_EDIT
+   155→* COMPETITION_MANAGE
+   156→* PAYMENT_VIEW
+   157→* PAYMENT_MANAGE
+   158→* EXAMINER_MANAGE
+   159→* EXAM_ASSIGN
+   160→* RESULT_VIEW
+   161→* RESULT_MANAGE
+   162→* NOTIFICATION_MANAGE
+   163→* AUDIT_VIEW
+   164→* SETTINGS_MANAGE
+   165→
+   166→---
+   167→
+   168→## TEACHER
+   169→
+   170→Teachers can:
+   171→
+   172→* Register
+   173→* Verify email
+   174→* Login
+   175→* Create/manage their teacher profile
+   176→* Add students
+   177→* View students added by them
+   178→* Monitor student registration status
+   179→* Monitor payment status
+   180→* View competition eligibility
+   181→* View student submission status
+   182→* Receive relevant notifications
+   183→
+   184→A teacher may register multiple students.
+   185→
+   186→Each student should maintain a relationship with the teacher who registered/referred them.
+   187→
+   188→---
+   189→
+   190→## STUDENT
+   191→
+   192→Students can:
+   193→
+   194→* Register
+   195→* Verify email
+   196→* Login
+   197→* Complete profile
+   198→* Provide school information
+   199→* Provide date of birth
+   200→* Automatically determine age
+   201→* See eligible competition category
+   202→* Apply for competition
+   203→* Pay registration fee
+   204→* Receive payment confirmation
+   205→* Receive competition notifications
+   206→* Upload essay PDF
+   207→* View submission status
+   208→* View relevant competition information
+   209→* View result when officially published
+   210→
+   211→Students must NOT be able to access administrative or examiner functionality.
+   212→
+   213→---
+   214→
+   215→## EXAMINER
+   216→
+   217→Examiners can:
+   218→
+   219→* Login through a dedicated examiner portal
+   220→* View essays assigned to them
+   221→* Open PDF essays
+   222→* Read essay
+   223→* Give marks
+   224→* Add justification
+   225→* Add comments
+   226→* Select/copy relevant essay text
+   227→* Use OCR-assisted text extraction where required
+   228→* Save draft evaluation
+   229→* Submit final evaluation
+   230→* View previously evaluated essays according to permissions
+   231→
+   232→An examiner must only access essays assigned to them.
+   233→
+   234→---
+   235→
+   236→# 5. COMPETITION MANAGEMENT
+   237→
+   238→Admin must be able to create and manage competitions.
+   239→
+   240→Competition fields should include:
+   241→
+   242→* Competition ID
+   243→* Competition name
+   244→* Description
+   245→* Academic year
+   246→* Start date
+   247→* Registration opening date
+   248→* Registration closing date
+   249→* Essay submission opening date
+   250→* Essay submission closing date
+   251→* Essay writing competition date
+   252→* Result declaration date
+   253→* Minimum age
+   254→* Maximum age
+   255→* Age calculation date
+   256→* Registration fee
+   257→* Maximum essay file size
+   258→* Allowed file formats
+   259→* Competition status
+   260→
+   261→Competition statuses could include:
+   262→
+   263→* DRAFT
+   264→* REGISTRATION_OPEN
+   265→* REGISTRATION_CLOSED
+   266→* SUBMISSION_OPEN
+   267→* SUBMISSION_CLOSED
+   268→* EVALUATION_IN_PROGRESS
+   269→* RESULT_PENDING
+   270→* RESULT_PUBLISHED
+   271→* COMPLETED
+   272→* CANCELLED
+   273→
+   274→Do not hard-code competition dates.
+   275→
+   276→Everything must be configurable from Admin.
+   277→
+   278→---
+   279→
+   280→# 6. AGE-BASED ELIGIBILITY
+   281→
+   282→The student must provide:
+   283→
+   284→* Date of birth
+   285→
+   286→The system must calculate age automatically.
+   287→
+   288→Do not allow users to manually enter an arbitrary age as the authoritative value.
+   289→
+   290→Eligibility should be calculated from:
+   291→
+   292→* Date of birth
+   293→* Competition's configured age rules
+   294→* Competition's configured age calculation date
+   295→
+   296→Admin must be able to configure age groups.
+   297→
+   298→Example:
+   299→
+   300→* Group A: 10–12
+   301→* Group B: 13–15
+   302→* Group C: 16–18
+   303→
+   304→Do NOT hard-code these examples.
+   305→
+   306→Make age categories configurable.
+   307→
+   308→---
+   309→
+   310→# 7. STUDENT PROFILE
+   311→
+   312→Student profile should contain appropriate fields such as:
+   313→
+   314→### Personal Information
+   315→
+   316→* Full name
+   317→* Date of birth
+   318→* Gender if required
+   319→* Email
+   320→* Mobile
+   321→* Address
+   322→* Profile photo if required
+   323→
+   324→### School Information
+   325→
+   326→* School name
+   327→* School address
+   328→* Board
+   329→* Class
+   330→* Section
+   331→* Roll number
+   332→* Student ID if applicable
+   333→
+   334→### Guardian Information
+   335→
+   336→* Guardian name
+   337→* Relationship
+   338→* Guardian mobile
+   339→* Guardian email
+   340→
+   341→### Competition Information
+   342→
+   343→* Competition
+   344→* Age category
+   345→* Registration number
+   346→* Registration status
+   347→* Payment status
+   348→* Essay submission status
+   349→
+   350→Do not collect unnecessary sensitive information.
+   351→
+   352→---
+   353→
+   354→# 8. TEACHER PROFILE
+   355→
+   356→Teacher profile should contain:
+   357→
+   358→* Full name
+   359→* Email
+   360→* Mobile
+   361→* School name
+   362→* School address
+   363→* Designation
+   364→* Employee/teacher ID if required
+   365→* Address
+   366→* Profile photo if required
+   367→
+   368→Teacher dashboard should show:
+   369→
+   370→* Total students
+   371→* Registered students
+   372→* Paid students
+   373→* Pending payments
+   374→* Essay submissions
+   375→* Submission status
+   376→* Competition notifications
+   377→
+   378→---
+   379→
+   380→# 9. REGISTRATION FLOW
+   381→
+   382→### Teacher registration
+   383→
+   384→Teacher:
+   385→
+   386→1. Opens registration page.
+   387→2. Enters required information.
+   388→3. Creates account.
+   389→4. Receives verification email through Resend.
+   390→5. Verifies email.
+   391→6. Logs in.
+   392→7. Accesses Teacher Dashboard.
+   393→8. Adds students.
+   394→
+   395→### Student direct registration
+   396→
+   397→Student:
+   398→
+   399→1. Opens registration.
+   400→2. Provides details.
+   401→3. Verifies email.
+   402→4. Completes profile.
+   403→5. Selects/apply for eligible competition.
+   404→6. Pays registration fee.
+   405→7. Payment verified by server.
+   406→8. Registration becomes confirmed.
+   407→9. Thank You / Confirmation page displayed.
+   408→10. Confirmation email sent.
+   409→
+   410→### Teacher-assisted registration
+   411→
+   412→Teacher:
+   413→
+   414→1. Logs into dashboard.
+   415→2. Adds student.
+   416→3. Student record is created.
+   417→4. Student receives invitation/verification email.
+   418→5. Student verifies email.
+   419→6. Student sets/activates login credentials.
+   420→7. Student completes profile.
+   421→8. Student pays registration fee.
+   422→9. Registration is confirmed.
+   423→
+   424→Never automatically mark a registration as paid merely because the Razorpay checkout page was opened.
+   425→
+   426→---
+   427→
+   428→# 10. RAZORPAY PAYMENT INTEGRATION
+   429→
+   430→Integrate Razorpay securely.
+   431→
+   432→Registration fee default:
+   433→
+   434→₹100
+   435→
+   436→But ₹100 must be configurable from Admin.
+   437→
+   438→Payment architecture must include:
+   439→
+   440→* Payment order creation
+   441→* Razorpay checkout
+   442→* Server-side payment verification
+   443→* Signature verification
+   444→* Payment status
+   445→* Payment ID
+   446→* Order ID
+   447→* Signature
+   448→* Amount
+   449→* Currency
+   450→* Timestamp
+   451→* User
+   452→* Competition
+   453→* Registration ID
+   454→
+   455→Possible statuses:
+   456→
+   457→* CREATED
+   458→* PENDING
+   459→* SUCCESS
+   460→* FAILED
+   461→* REFUNDED
+   462→* PARTIALLY_REFUNDED
+   463→* CANCELLED
+   464→
+   465→Use Razorpay webhook handling where appropriate.
+   466→
+   467→The webhook must be idempotent.
+   468→
+   469→Never trust only the client-side payment success response.
+   470→
+   471→The server must verify payment authenticity.
+   472→
+   473→Prevent:
+   474→
+   475→* Duplicate payment records
+   476→* Duplicate registration
+   477→* Amount manipulation
+   478→* Replay attacks
+   479→* Unauthorized payment status updates
+   480→
+   481→---
+   482→
+   483→# 11. FINANCIAL ADMIN PANEL
+   484→
+   485→Create a dedicated Finance section.
+   486→
+   487→Admin should be able to view:
+   488→
+   489→* Total registrations
+   490→* Successful payments
+   491→* Pending payments
+   492→* Failed payments
+   493→* Refunded payments
+   494→* Total collected amount
+   495→* Competition-wise revenue
+   496→* Date-wise revenue
+   497→* Payment gateway transaction IDs
+   498→* Razorpay order IDs
+   499→* Razorpay payment IDs
+   500→* Registration numbers
+   501→* Student
+   502→* Teacher/referrer
+   503→* Competition
+   504→* Payment status
+   505→* Payment date
+   506→
+   507→Provide filters:
+   508→
+   509→* Date range
+   510→* Competition
+   511→* Payment status
+   512→* Student
+   513→* Teacher
+   514→* Payment ID
+   515→* Registration number
+   516→
+   517→Provide export capability such as CSV/Excel-compatible export.
+   518→
+   519→Financial records should be immutable from normal admin UI.
+   520→
+   521→If corrections are necessary, create adjustment/refund records rather than silently modifying historical transactions.
+   522→
+   523→---
+   524→
+   525→# 12. PAYMENT THANK-YOU PAGE
+   526→
+   527→After verified successful payment:
+   528→
+   529→Show a professional confirmation page containing:
+   530→
+   531→* Thank you message
+   532→* Student name
+   533→* Registration number
+   534→* Competition name
+   535→* Payment status
+   536→* Amount paid
+   537→* Payment ID
+   538→* Date
+   539→* Next steps
+   540→* Essay submission information
+   541→* Competition date if already announced
+   542→
+   543→Also send confirmation email through Resend.
+   544→
+   545→---
+   546→
+   547→# 13. EMAIL SYSTEM
+   548→
+   549→Use Resend.
+   550→
+   551→Implement reusable email templates.
+   552→
+   553→Required emails:
+   554→
+   555→1. Student registration
+   556→2. Email verification
+   557→3. Teacher registration
+   558→4. Teacher email verification
+   559→5. Student invitation from teacher
+   560→6. Payment success
+   561→7. Payment failure
+   562→8. Registration confirmation
+   563→9. Essay submission confirmation
+   564→10. Competition date announcement
+   565→11. Important competition notification
+   566→12. Result publication
+   567→13. Examiner assignment
+   568→14. Examiner reminder
+   569→
+   570→Admin should be able to configure email templates where practical.
+   571→
+   572→Use a centralized email service rather than scattering email logic throughout the application.
+   573→
+   574→---
+   575→
+   576→# 14. NOTIFICATION SYSTEM
+   577→
+   578→Implement a notification system.
+   579→
+   580→Support:
+   581→
+   582→* In-app notifications
+   583→* Email notifications
+   584→
+   585→Admin should be able to create announcements.
+   586→
+   587→Announcement fields:
+   588→
+   589→* Title
+   590→* Message
+   591→* Audience
+   592→* Competition
+   593→* Scheduled date/time
+   594→* Status
+   595→* Created by
+   596→* Created timestamp
+   597→
+   598→Audience examples:
+   599→
+   600→* All students
+   601→* Registered students
+   602→* Students of specific competition
+   603→* Teachers
+   604→* Examiners
+   605→* Specific users
+   606→
+   607→---
+   608→
+   609→# 15. ESSAY SUBMISSION
+   610→
+   611→Students must have a dedicated Essay Submission section.
+   612→
+   613→Only PDF files are allowed.
+   614→
+   615→Maximum file size:
+   616→
+   617→5 MB
+   618→
+   619→Do not trust file extension alone.
+   620→
+   621→Perform server-side validation.
+   622→
+   623→Validate:
+   624→
+   625→* MIME type
+   626→* File signature / magic bytes
+   627→* PDF structure
+   628→* File size
+   629→* PDF readability
+   630→* Corruption
+   631→* Malformed file
+   632→* Potentially dangerous embedded content
+   633→* Filename
+   634→* Metadata where relevant
+   635→
+   636→Reject:
+   637→
+   638→* Non-PDF files renamed as `.pdf`
+   639→* Corrupted PDFs
+   640→* Oversized files
+   641→* Invalid files
+   642→* Suspicious/malformed files
+   643→
+   644→---
+   645→
+   646→# 16. FILE SECURITY
+   647→
+   648→Because uploaded documents are user-generated content, implement a strong upload security policy.
+   649→
+   650→Consider:
+   651→
+   652→* MIME validation
+   653→* Magic-byte validation
+   654→* PDF parser validation
+   655→* Sanitization
+   656→* Safe filenames
+   657→* Random storage identifiers
+   658→* No executable content
+   659→* No direct execution
+   660→* Access-controlled delivery
+   661→* Signed/private Cloudinary URLs where appropriate
+   662→* Rate limiting
+   663→* Upload quotas
+   664→* Authentication requirement
+   665→
+   666→Do not expose internal storage paths.
+   667→
+   668→Do not trust:
+   669→
+   670→* Client filename
+   671→* Client MIME type
+   672→* Client file size
+   673→* Client metadata
+   674→
+   675→Server must independently validate everything.
+   676→
+   677→---
+   678→
+   679→# 17. CLOUDINARY STORAGE
+   680→
+   681→Use Cloudinary for essay storage.
+   682→
+   683→Store only necessary metadata in PostgreSQL.
+   684→
+   685→Essay record should contain:
+   686→
+   687→* Essay ID
+   688→* Student ID
+   689→* Competition ID
+   690→* Cloudinary public/resource identifier
+   691→* File URL or secure delivery reference
+   692→* File size
+   693→* MIME type
+   694→* Original filename
+   695→* Upload timestamp
+   696→* Verification status
+   697→* Submission status
+   698→* Hash/checksum if appropriate
+   699→
+   700→The system should be able to detect duplicate uploads using file hashing where practical.
+   701→
+   702→---
+   703→
+   704→# 18. ESSAY SUBMISSION STATES
+   705→
+   706→Example:
+   707→
+   708→* NOT_STARTED
+   709→* UPLOAD_PENDING
+   710→* UPLOADING
+   711→* VALIDATING
+   712→* VALID
+   713→* INVALID
+   714→* SUBMITTED
+   715→* LOCKED
+   716→* UNDER_EVALUATION
+   717→* EVALUATED
+   718→* RESULT_PUBLISHED
+   719→
+   720→Once the competition submission deadline passes, students must not be able to modify the submission unless Admin explicitly reopens it.
+   721→
+   722→---
+   723→
+   724→# 19. EXAMINER MANAGEMENT
+   725→
+   726→Admin must be able to:
+   727→
+   728→* Create examiner accounts
+   729→* Activate/deactivate examiners
+   730→* View examiner profile
+   731→* Assign competitions
+   732→* Assign essays
+   733→* Reassign essays
+   734→* View examiner workload
+   735→* View evaluation progress
+   736→* View submitted evaluations
+   737→* Reopen evaluation if authorized
+   738→
+   739→Examiner accounts must have restricted access.
+   740→
+   741→---
+   742→
+   743→# 20. MULTIPLE EXAMINER EVALUATION
+   744→
+   745→Multiple examiners can evaluate the same essay.
+   746→
+   747→Example:
+   748→
+   749→Essay X:
+   750→
+   751→* Examiner A → 82
+   752→* Examiner B → 88
+   753→* Examiner C → 85
+   754→
+   755→Final average:
+   756→
+   757→85
+   758→
+   759→The system must automatically calculate the average according to the configured scoring policy.
+   760→
+   761→Do not simply overwrite previous examiner marks.
+   762→
+   763→Every examiner evaluation must remain independently stored.
+   764→
+   765→Store:
+   766→
+   767→* Examiner ID
+   768→* Essay ID
+   769→* Score
+   770→* Justification
+   771→* Comments
+   772→* OCR references
+   773→* Evaluation timestamp
+   774→* Submission/finalization status
+   775→* Version if edited/reopened
+   776→
+   777→Admin should be able to configure:
+   778→
+   779→* Number of examiners
+   780→* Maximum marks
+   781→* Minimum marks
+   782→* Averaging method
+   783→* Whether outlier handling is required
+   784→* Tie-breaking policy if needed
+   785→
+   786→---
+   787→
+   788→# 21. EXAMINER EVALUATION UI
+   789→
+   790→Build a professional examiner workspace.
+   791→
+   792→Recommended three-column layout:
+   793→
+   794→### LEFT PANEL
+   795→
+   796→Essay list.
+   797→
+   798→Show:
+   799→
+   800→* Essay ID
+   801→* Student/anonymous identifier
+   802→* Status
+   803→* Assignment status
+   804→* Evaluation status
+   805→
+   806→Include:
+   807→
+   808→* Search
+   809→* Filters
+   810→* Sort
+   811→* Pagination
+   812→* Next/previous essay
+   813→
+   814→---
+   815→
+   816→### MIDDLE PANEL
+   817→
+   818→PDF viewer.
+   819→
+   820→Requirements:
+   821→
+   822→* Load essay PDF
+   823→* Zoom
+   824→* Page navigation
+   825→* Full-screen
+   826→* Text selection where supported
+   827→* Responsive PDF rendering
+   828→
+   829→Do not expose unnecessary student personal information to examiners.
+   830→
+   831→Consider anonymous/blind evaluation if configured by Admin.
+   832→
+   833→---
+   834→
+   835→### RIGHT PANEL
+   836→
+   837→Evaluation form.
+   838→
+   839→Fields:
+   840→
+   841→* Criteria
+   842→* Marks
+   843→* Total marks
+   844→* Justification
+   845→* Comments
+   846→* Selected essay quotation/reference
+   847→* OCR/reference text
+   848→* Save draft
+   849→* Submit final evaluation
+   850→
+   851→Example scoring criteria may include:
+   852→
+   853→* Content
+   854→* Relevance
+   855→* Originality
+   856→* Language
+   857→* Structure
+   858→* Presentation
+   859→
+   860→But make criteria configurable from Admin.
+   861→
+   862→---
+   863→
+   864→# 22. OCR SUPPORT
+   865→
+   866→Where technically appropriate, provide OCR-assisted extraction.
+   867→
+   868→The examiner should be able to select/reference text from the essay for remarks.
+   869→
+   870→Example:
+   871→
+   872→Examiner selects a section of the essay.
+   873→
+   874→System extracts/copies text.
+   875→
+   876→Examiner can attach that text to:
+   877→
+   878→* Justification
+   879→* Comment
+   880→* Evaluation criterion
+   881→
+   882→Do not automatically trust OCR as authoritative.
+   883→
+   884→Clearly distinguish:
+   885→
+   886→* Original PDF content
+   887→* OCR-generated text
+   888→* Examiner-written comments
+   889→
+   890→If OCR cannot reliably process a PDF, the examiner should still be able to manually enter remarks.
+   891→
+   892→---
+   893→
+   894→# 23. BLIND EXAMINATION
+   895→
+   896→Support optional anonymous evaluation.
+   897→
+   898→Admin should be able to configure whether examiners can see:
+   899→
+   900→* Student name
+   901→* School name
+   902→* Teacher name
+   903→* Contact information
+   904→
+   905→Default recommendation:
+   906→
+   907→Examiners should see only the information necessary to evaluate the essay.
+   908→
+   909→---
+   910→
+   911→# 24. RESULT CALCULATION
+   912→
+   913→After all required examiner evaluations are completed:
+   914→
+   915→Calculate final result.
+   916→
+   917→Example:
+   918→
+   919→Final Score =
+   920→Average of valid examiner scores
+   921→
+   922→Store:
+   923→
+   924→* Individual examiner scores
+   925→* Average score
+   926→* Final score
+   927→* Rank if applicable
+   928→* Category
+   929→* Result status
+   930→
+   931→Do not delete or overwrite individual evaluations.
+   932→
+   933→Result calculation should be reproducible.
+   934→
+   935→---
+   936→
+   937→# 25. AUDIT LOG
+   938→
+   939→Implement a comprehensive audit log.
+   940→
+   941→Track important actions including:
+   942→
+   943→* Login
+   944→* Logout
+   945→* Registration
+   946→* Profile changes
+   947→* Competition creation
+   948→* Competition updates
+   949→* Payment creation
+   950→* Payment verification
+   951→* Payment failure
+   952→* Refund
+   953→* Essay upload
+   954→* Essay validation failure
+   955→* Essay deletion/replacement
+   956→* Examiner assignment
+   957→* Examiner reassignment
+   958→* Evaluation submission
+   959→* Evaluation modification
+   960→* Result calculation
+   961→* Result publication
+   962→* Admin setting changes
+   963→* Permission changes
+   964→
+   965→Audit fields:
+   966→
+   967→* ID
+   968→* User ID
+   969→* User role
+   970→* Action
+   971→* Entity type
+   972→* Entity ID
+   973→* Previous value where appropriate
+   974→* New value where appropriate
+   975→* IP address where appropriate
+   976→* User agent where appropriate
+   977→* Timestamp
+   978→* Request/correlation ID
+   979→
+   980→Audit records should not be editable through normal UI.
+   981→
+   982→---
+   983→
+   984→# 26. ADMIN SETTINGS
+   985→
+   986→Create a proper Admin Settings area.
+   987→
+   988→Organize settings into sections.
+   989→
+   990→## General
+   991→
+   992→* Organization name
+   993→* Logo
+   994→* Contact email
+   995→* Contact phone
+   996→* Address
+   997→* Website
+   998→* Timezone
+   999→
+  1000→## Competition
+  1001→
+  1002→* Default registration fee
+  1003→* Age calculation policy
+  1004→* Competition rules
+  1005→* Submission deadline
+  1006→* Maximum essay size
+  1007→* Allowed file types
+  1008→
+  1009→## Payment
+  1010→
+  1011→* Razorpay configuration status
+  1012→* Currency
+  1013→* Payment mode
+  1014→* Webhook status
+  1015→* Payment settings
+  1016→
+  1017→Never expose secret keys in the frontend.
+  1018→
+  1019→## Email
+  1020→
+  1021→* Resend configuration status
+  1022→* Sender name
+  1023→* Sender email
+  1024→* Email templates
+  1025→
+  1026→## Storage
+  1027→
+  1028→* Cloudinary configuration
+  1029→* Upload limits
+  1030→* Storage policies
+  1031→
+  1032→## Examination
+  1033→
+  1034→* Examiner count
+  1035→* Maximum marks
+  1036→* Evaluation criteria
+  1037→* Average calculation
+  1038→* Blind evaluation
+  1039→
+  1040→## Security
+  1041→
+  1042→* Session configuration
+  1043→* Password policies
+  1044→* Rate limiting
+  1045→* Login attempt policies
+  1046→* Upload restrictions
+  1047→
+  1048→## Notifications
+  1049→
+  1050→* Email notification settings
+  1051→* In-app notification settings
+  1052→* Announcement defaults
+  1053→
+  1054→---
+  1055→
+  1056→# 27. ADMIN DASHBOARD
+  1057→
+  1058→Create a professional dashboard.
+  1059→
+  1060→Dashboard cards:
+  1061→
+  1062→* Total students
+  1063→* Total teachers
+  1064→* Total examiners
+  1065→* Active competitions
+  1066→* Total registrations
+  1067→* Paid registrations
+  1068→* Pending payments
+  1069→* Total revenue
+  1070→* Essays submitted
+  1071→* Essays pending evaluation
+  1072→* Completed evaluations
+  1073→* Results pending
+  1074→* Results published
+  1075→
+  1076→Charts:
+  1077→
+  1078→* Registration trend
+  1079→* Revenue trend
+  1080→* Competition participation
+  1081→* Payment status
+  1082→* Essay submission progress
+  1083→* Examiner evaluation progress
+  1084→
+  1085→Use server-side aggregation where practical.
+  1086→
+  1087→Do not expose sensitive financial data to unauthorized roles.
+  1088→
+  1089→---
+  1090→
+  1091→# 28. DATABASE DESIGN
+  1092→
+  1093→Create a normalized relational database.
+  1094→
+  1095→Likely entities include:
+  1096→
+  1097→* User
+  1098→* Role
+  1099→* Permission
+  1100→* UserRole
+  1101→* StudentProfile
+  1102→* TeacherProfile
+  1103→* ExaminerProfile
+  1104→* School
+  1105→* Competition
+  1106→* CompetitionCategory
+  1107→* Registration
+  1108→* Payment
+  1109→* PaymentEvent
+  1110→* EssaySubmission
+  1111→* EssayFile
+  1112→* ExaminerAssignment
+  1113→* ExaminerEvaluation
+  1114→* EvaluationCriterion
+  1115→* EvaluationScore
+  1116→* Result
+  1117→* Notification
+  1118→* Announcement
+  1119→* EmailVerificationToken
+  1120→* PasswordResetToken
+  1121→* AuditLog
+  1122→* SystemSetting
+  1123→
+  1124→Review and adjust this schema before implementation.
+  1125→
+  1126→Use:
+  1127→
+  1128→* Proper foreign keys
+  1129→* Unique constraints
+  1130→* Indexes
+  1131→* Transactions
+  1132→* Cascading rules carefully
+  1133→* Soft deletion where appropriate
+  1134→* Created/updated timestamps
+  1135→
+  1136→Do not store duplicated information unnecessarily.
+  1137→
+  1138→---
+  1139→
+  1140→# 29. SECURITY REQUIREMENTS
+  1141→
+  1142→Security is a first-class requirement.
+  1143→
+  1144→Implement:
+  1145→
+  1146→* Strong authentication
+  1147→* Role-based access control
+  1148→* Permission-based authorization
+  1149→* Secure password hashing
+  1150→* Email verification
+  1151→* Secure sessions
+  1152→* CSRF protection where applicable
+  1153→* Input validation
+  1154→* Output encoding
+  1155→* SQL injection prevention
+  1156→* XSS protection
+  1157→* Rate limiting
+  1158→* Brute-force protection
+  1159→* Secure headers
+  1160→* Content Security Policy
+  1161→* Secure cookies
+  1162→* Server-side authorization
+  1163→* File upload validation
+  1164→* Payment signature verification
+  1165→* Webhook verification
+  1166→* Audit logging
+  1167→
+  1168→Never rely solely on frontend authorization.
+  1169→
+  1170→Every sensitive API/server action must verify authorization server-side.
+  1171→
+  1172→---
+  1173→
+  1174→# 30. CONTENT SECURITY POLICY
+  1175→
+  1176→Implement a practical CSP appropriate for:
+  1177→
+  1178→* Next.js
+  1179→* Razorpay
+  1180→* Cloudinary
+  1181→* PDF viewer
+  1182→* Resend-related functionality where applicable
+  1183→
+  1184→Avoid using an unnecessarily permissive policy such as:
+  1185→
+  1186→`default-src *`
+  1187→
+  1188→Do not blindly use:
+  1189→
+  1190→`unsafe-eval`
+  1191→
+  1192→or unrestricted:
+  1193→
+  1194→`unsafe-inline`
+  1195→
+  1196→unless technically unavoidable and properly justified.
+  1197→
+  1198→Document any required CSP exceptions.
+  1199→
+  1200→---
+  1201→
+  1202→# 31. API / SERVER ARCHITECTURE
+  1203→
+  1204→Keep business logic separate from UI components.
+  1205→
+  1206→Recommended structure:
+  1207→
+  1208→* Authentication layer
+  1209→* Authorization layer
+  1210→* Validation layer
+  1211→* Service layer
+  1212→* Database layer
+  1213→* Payment service
+  1214→* Email service
+  1215→* Storage service
+  1216→* Notification service
+  1217→* Examination service
+  1218→* Audit service
+  1219→
+  1220→Avoid placing business logic directly inside React components.
+  1221→
+  1222→Use schemas for validation, preferably with Zod or equivalent.
+  1223→
+  1224→---
+  1225→
+  1226→# 32. ERROR HANDLING
+  1227→
+  1228→Create consistent error handling.
+  1229→
+  1230→Every user-facing error should be understandable.
+  1231→
+  1232→Examples:
+  1233→
+  1234→* Invalid email
+  1235→* Email already registered
+  1236→* Invalid age
+  1237→* Competition unavailable
+  1238→* Payment failed
+  1239→* Payment verification failed
+  1240→* Essay too large
+  1241→* Invalid PDF
+  1242→* Corrupted PDF
+  1243→* Upload failed
+  1244→* Unauthorized access
+  1245→* Evaluation already submitted
+  1246→
+  1247→Do not expose:
+  1248→
+  1249→* Database errors
+  1250→* Stack traces
+  1251→* Secrets
+  1252→* Internal service details
+  1253→
+  1254→to users.
+  1255→
+  1256→Log technical errors securely for administrators/developers.
+  1257→
+  1258→---
+  1259→
+  1260→# 33. UX REQUIREMENTS
+  1261→
+  1262→The UI must look like a professional production SaaS/admin application.
+  1263→
+  1264→Requirements:
+  1265→
+  1266→* Responsive
+  1267→* Desktop
+  1268→* Tablet
+  1269→* Mobile
+  1270→* Accessible forms
+  1271→* Clear validation messages
+  1272→* Loading states
+  1273→* Empty states
+  1274→* Error states
+  1275→* Success states
+  1276→* Confirmation dialogs
+  1277→* Toast notifications
+  1278→* Pagination
+  1279→* Search
+  1280→* Filtering
+  1281→* Sorting
+  1282→* Breadcrumbs
+  1283→* Consistent navigation
+  1284→
+  1285→Use a clean design system.
+  1286→
+  1287→Avoid unnecessarily complicated animations.
+  1288→
+  1289→---
+  1290→
+  1291→# 34. STUDENT DASHBOARD
+  1292→
+  1293→Include:
+  1294→
+  1295→### Overview
+  1296→
+  1297→* Competition status
+  1298→* Registration status
+  1299→* Payment status
+  1300→* Essay submission status
+  1301→* Important notifications
+  1302→
+  1303→### Profile
+  1304→
+  1305→* Personal details
+  1306→* School details
+  1307→* Guardian details
+  1308→
+  1309→### Competition
+  1310→
+  1311→* Eligible competitions
+  1312→* Registered competitions
+  1313→* Rules
+  1314→* Important dates
+  1315→
+  1316→### Payment
+  1317→
+  1318→* Payment history
+  1319→* Receipt/confirmation
+  1320→
+  1321→### Essay
+  1322→
+  1323→* Upload essay
+  1324→* Validation status
+  1325→* Submission status
+  1326→* Submission timestamp
+  1327→
+  1328→### Results
+  1329→
+  1330→* Result status
+  1331→* Final marks
+  1332→* Result publication information
+  1333→
+  1334→---
+  1335→
+  1336→# 35. TEACHER DASHBOARD
+  1337→
+  1338→Include:
+  1339→
+  1340→* Profile
+  1341→* Student list
+  1342→* Add student
+  1343→* Student registration status
+  1344→* Payment status
+  1345→* Submission status
+  1346→* Competition information
+  1347→* Notifications
+  1348→
+  1349→Allow teacher to search/filter students.
+  1350→
+  1351→---
+  1352→
+  1353→# 36. EXAMINER DASHBOARD
+  1354→
+  1355→Include:
+  1356→
+  1357→* Assigned essays
+  1358→* Pending evaluations
+  1359→* Completed evaluations
+  1360→* Progress percentage
+  1361→* Competition
+  1362→* Deadline
+  1363→* Evaluation workspace
+  1364→
+  1365→Show workload statistics.
+  1366→
+  1367→---
+  1368→
+  1369→# 37. ADMIN NAVIGATION
+  1370→
+  1371→Create a professional sidebar.
+  1372→
+  1373→Suggested navigation:
+  1374→
+  1375→### Dashboard
+  1376→
+  1377→### Users
+  1378→
+  1379→* Students
+  1380→* Teachers
+  1381→* Examiners
+  1382→* Administrators
+  1383→
+  1384→### Competitions
+  1385→
+  1386→* All Competitions
+  1387→* Categories
+  1388→* Eligibility
+  1389→* Important Dates
+  1390→
+  1391→### Registrations
+  1392→
+  1393→* All Registrations
+  1394→* Pending
+  1395→* Confirmed
+  1396→* Cancelled
+  1397→
+  1398→### Finance
+  1399→
+  1400→* Transactions
+  1401→* Revenue
+  1402→* Refunds
+  1403→* Payment Events
+  1404→* Reports
+  1405→
+  1406→### Essays
+  1407→
+  1408→* All Submissions
+  1409→* Pending Validation
+  1410→* Submitted
+  1411→* Under Evaluation
+  1412→* Evaluated
+  1413→
+  1414→### Examination
+  1415→
+  1416→* Examiner Management
+  1417→* Assignments
+  1418→* Evaluation Progress
+  1419→* Results
+  1420→
+  1421→### Notifications
+  1422→
+  1423→* Announcements
+  1424→* Notifications
+  1425→* Email Templates
+  1426→
+  1427→### Reports
+  1428→
+  1429→* Registration Reports
+  1430→* Financial Reports
+  1431→* Submission Reports
+  1432→* Examiner Reports
+  1433→* Result Reports
+  1434→
+  1435→### Audit Logs
+  1436→
+  1437→### Settings
+  1438→
+  1439→* General
+  1440→* Competition
+  1441→* Payment
+  1442→* Email
+  1443→* Storage
+  1444→* Security
+  1445→* Examination
+  1446→* Notifications
+  1447→
+  1448→---
+  1449→
+  1450→# 38. DATA EXPORT
+  1451→
+  1452→Admin should be able to export appropriate datasets.
+  1453→
+  1454→Examples:
+  1455→
+  1456→* Student list
+  1457→* Teacher list
+  1458→* Registration list
+  1459→* Payment report
+  1460→* Essay submission report
+  1461→* Examiner assignment report
+  1462→* Evaluation report
+  1463→* Final result report
+  1464→
+  1465→Exports must respect authorization and privacy.
+  1466→
+  1467→---
+  1468→
+  1469→# 39. PRODUCTION DEPLOYMENT
+  1470→
+  1471→Deployment target:
+  1472→
+  1473→### Frontend/API
+  1474→
+  1475→Vercel
+  1476→
+  1477→### Database
+  1478→
+  1479→Neon PostgreSQL
+  1480→
+  1481→### Email
+  1482→
+  1483→Resend
+  1484→
+  1485→### File storage
+  1486→
+  1487→Cloudinary
+  1488→
+  1489→### Payment
+  1490→
+  1491→Razorpay
+  1492→
+  1493→Create:
+  1494→
+  1495→`.env.example`
+  1496→
+  1497→with placeholders such as:
+  1498→
+  1499→* DATABASE_URL
+  1500→* AUTH_SECRET
+  1501→* RAZORPAY_KEY_ID
+  1502→* RAZORPAY_KEY_SECRET
+  1503→* RAZORPAY_WEBHOOK_SECRET
+  1504→* RESEND_API_KEY
+  1505→* RESEND_FROM_EMAIL
+  1506→* CLOUDINARY_CLOUD_NAME
+  1507→* CLOUDINARY_API_KEY
+  1508→* CLOUDINARY_API_SECRET
+  1509→
+  1510→Never commit `.env`.
+  1511→
+  1512→---
+  1513→
+  1514→# 40. FREE / LOW-COST PRODUCTION ARCHITECTURE
+  1515→
+  1516→Design the initial application so that it can run using free-tier services where their current limits permit.
+  1517→
+  1518→However:
+  1519→
+  1520→Do NOT compromise security or architecture merely to remain within a free tier.
+  1521→
+  1522→Clearly identify:
+  1523→
+  1524→* Free-tier assumptions
+  1525→* Storage limits
+  1526→* Database limits
+  1527→* Email limits
+  1528→* Cloudinary limits
+  1529→* Vercel limits
+  1530→* Razorpay transaction costs
+  1531→
+  1532→Build the application so services can be upgraded later without rewriting the architecture.
+  1533→
+  1534→---
+  1535→
+  1536→# 41. BACKGROUND JOBS
+  1537→
+  1538→Avoid unnecessary background infrastructure initially.
+  1539→
+  1540→Where possible, use:
+  1541→
+  1542→* Serverless functions
+  1543→* Webhooks
+  1544→* Database-driven status
+  1545→* Scheduled jobs supported by the deployment platform where available
+  1546→
+  1547→Potential background tasks:
+  1548→
+  1549→* Email delivery
+  1550→* Notification delivery
+  1551→* Evaluation reminders
+  1552→* Result calculation
+  1553→* Cleanup of abandoned uploads
+  1554→* Payment reconciliation
+  1555→
+  1556→Design these so they are idempotent.
+  1557→
+  1558→---
+  1559→
+  1560→# 42. IDEMPOTENCY
+  1561→
+  1562→Critical operations must be idempotent.
+  1563→
+  1564→Especially:
+  1565→
+  1566→* Razorpay webhook
+  1567→* Payment verification
+  1568→* Email sending
+  1569→* Essay submission
+  1570→* Examiner evaluation submission
+  1571→* Result calculation
+  1572→
+  1573→The same event must not create duplicate records.
+  1574→
+  1575→---
+  1576→
+  1577→# 43. TRANSACTIONAL INTEGRITY
+  1578→
+  1579→Use database transactions for operations such as:
+  1580→
+  1581→* Registration + payment state
+  1582→* Payment confirmation
+  1583→* Examiner assignment
+  1584→* Evaluation finalization
+  1585→* Result generation
+  1586→
+  1587→Do not allow partial state where possible.
+  1588→
+  1589→---
+  1590→
+  1591→# 44. TESTING
+  1592→
+  1593→Implement tests.
+  1594→
+  1595→At minimum:
+  1596→
+  1597→### Unit tests
+  1598→
+  1599→For:
+  1600→
+  1601→* Age calculation
+  1602→* Eligibility
+  1603→* Payment amount validation
+  1604→* Average score calculation
+  1605→* Registration state
+  1606→* File validation
+  1607→
+  1608→### Integration tests
+  1609→
+  1610→For:
+  1611→
+  1612→* Registration
+  1613→* Email verification
+  1614→* Payment
+  1615→* Webhook
+  1616→* Essay upload
+  1617→* Examiner evaluation
+  1618→* Result calculation
+  1619→
+  1620→### Security tests
+  1621→
+  1622→For:
+  1623→
+  1624→* Unauthorized API access
+  1625→* Role escalation
+  1626→* Invalid file upload
+  1627→* Payment manipulation
+  1628→* Duplicate webhook
+  1629→* Duplicate registration
+  1630→* IDOR attacks
+  1631→
+  1632→### E2E tests
+  1633→
+  1634→Cover the complete flow:
+  1635→
+  1636→Teacher → Student → Verification → Payment → Essay → Examiner → Evaluation → Result.
+  1637→
+  1638→---
+  1639→
+  1640→# 45. SEED DATA
+  1641→
+  1642→Create development seed data.
+  1643→
+  1644→Include:
+  1645→
+  1646→* Super Admin
+  1647→* Admin
+  1648→* Teacher
+  1649→* Student
+  1650→* Examiner
+  1651→* Competition
+  1652→* Age categories
+  1653→* Evaluation criteria
+  1654→
+  1655→Do not use real personal information.
+  1656→
+  1657→Clearly document development credentials.
+  1658→
+  1659→Never use seed passwords in production.
+  1660→
+  1661→---
+  1662→
+  1663→# 46. AUDITABLE STATE MACHINES
+  1664→
+  1665→Where appropriate, use explicit status/state transitions.
+  1666→
+  1667→For example:
+  1668→
+  1669→Registration:
+  1670→
+  1671→PENDING → VERIFIED → PAYMENT_PENDING → PAID → CONFIRMED → CANCELLED
+  1672→
+  1673→Essay:
+  1674→
+  1675→NOT_STARTED → UPLOADING → VALIDATING → VALID → SUBMITTED → LOCKED → UNDER_EVALUATION → EVALUATED
+  1676→
+  1677→Evaluation:
+  1678→
+  1679→ASSIGNED → IN_PROGRESS → SUBMITTED → LOCKED
+  1680→
+  1681→Prevent invalid state transitions.
+  1682→
+  1683→---
+  1684→
+  1685→# 47. ADMIN OVERRIDES
+  1686→
+  1687→Admin may need controlled overrides.
+  1688→
+  1689→Examples:
+  1690→
+  1691→* Reopen registration
+  1692→* Reopen essay submission
+  1693→* Reassign examiner
+  1694→* Reopen evaluation
+  1695→* Mark payment manually after verified reconciliation
+  1696→* Cancel registration
+  1697→* Correct profile information
+  1698→
+  1699→Every override must:
+  1700→
+  1701→1. Require appropriate permission.
+  1702→2. Require confirmation.
+  1703→3. Create an audit record.
+  1704→4. Preserve historical information.
+  1705→
+  1706→---
+  1707→
+  1708→# 48. PRIVACY
+  1709→
+  1710→The system contains student information.
+  1711→
+  1712→Apply privacy-by-design principles.
+  1713→
+  1714→Do not unnecessarily expose:
+  1715→
+  1716→* Student phone
+  1717→* Guardian information
+  1718→* Email
+  1719→* Address
+  1720→* School information
+  1721→
+  1722→to examiners or other students.
+  1723→
+  1724→Use least-privilege access.
+  1725→
+  1726→---
+  1727→
+  1728→# 49. DOCUMENTATION
+  1729→
+  1730→Create comprehensive documentation:
+  1731→
+  1732→`README.md`
+  1733→
+  1734→Include:
+  1735→
+  1736→* Project overview
+  1737→* Architecture
+  1738→* Tech stack
+  1739→* Installation
+  1740→* Environment variables
+  1741→* Database setup
+  1742→* Neon setup
+  1743→* Razorpay setup
+  1744→* Resend setup
+  1745→* Cloudinary setup
+  1746→* Local development
+  1747→* Production deployment
+  1748→* Database migration
+  1749→* Seed data
+  1750→* Testing
+  1751→* Troubleshooting
+  1752→
+  1753→Also create:
+  1754→
+  1755→`docs/ARCHITECTURE.md`
+  1756→
+  1757→`docs/DATABASE.md`
+  1758→
+  1759→`docs/SECURITY.md`
+  1760→
+  1761→`docs/PAYMENTS.md`
+  1762→
+  1763→`docs/DEPLOYMENT.md`
+  1764→
+  1765→`docs/EXAMINATION.md`
+  1766→
+  1767→---
+  1768→
+  1769→# 50. DEVELOPMENT PHASES
+  1770→
+  1771→Implement in phases.
+  1772→
+  1773→## PHASE 1 — FOUNDATION
+  1774→
+  1775→* Next.js setup
+  1776→* TypeScript
+  1777→* UI system
+  1778→* Database
+  1779→* ORM
+  1780→* Environment configuration
+  1781→* Authentication foundation
+  1782→* Base layout
+  1783→* Error handling
+  1784→* Logging
+  1785→
+  1786→## PHASE 2 — USERS
+  1787→
+  1788→* Student
+  1789→* Teacher
+  1790→* Examiner
+  1791→* Admin
+  1792→* Profiles
+  1793→* Roles
+  1794→* Permissions
+  1795→* Email verification
+  1796→
+  1797→## PHASE 3 — COMPETITION
+  1798→
+  1799→* Competition management
+  1800→* Age eligibility
+  1801→* Categories
+  1802→* Registration
+  1803→* Competition dates
+  1804→
+  1805→## PHASE 4 — PAYMENT
+  1806→
+  1807→* Razorpay
+  1808→* Orders
+  1809→* Verification
+  1810→* Webhooks
+  1811→* Payment history
+  1812→* Finance dashboard
+  1813→* Thank-you page
+  1814→
+  1815→## PHASE 5 — ESSAY
+  1816→
+  1817→* Upload
+  1818→* Validation
+  1819→* PDF security
+  1820→* Cloudinary
+  1821→* Submission workflow
+  1822→
+  1823→## PHASE 6 — EXAMINATION
+  1824→
+  1825→* Examiner management
+  1826→* Assignment
+  1827→* Examiner workspace
+  1828→* PDF viewer
+  1829→* OCR/text reference
+  1830→* Evaluation
+  1831→* Multiple examiners
+  1832→* Average score
+  1833→
+  1834→## PHASE 7 — RESULTS
+  1835→
+  1836→* Result calculation
+  1837→* Ranking
+  1838→* Publication
+  1839→* Student result view
+  1840→
+  1841→## PHASE 8 — NOTIFICATIONS
+  1842→
+  1843→* Resend
+  1844→* Templates
+  1845→* Announcements
+  1846→* In-app notifications
+  1847→
+  1848→## PHASE 9 — AUDIT & REPORTING
+  1849→
+  1850→* Audit logs
+  1851→* Finance reports
+  1852→* Registration reports
+  1853→* Evaluation reports
+  1854→* Export
+  1855→
+  1856→## PHASE 10 — SECURITY & PRODUCTION
+  1857→
+  1858→* Security audit
+  1859→* Rate limiting
+  1860→* CSP
+  1861→* Authorization audit
+  1862→* File security
+  1863→* Payment security
+  1864→* Error handling
+  1865→* Performance optimization
+  1866→* Vercel deployment
+  1867→
+  1868→---
+  1869→
+  1870→# 51. CRITICAL DEVELOPMENT INSTRUCTION
+  1871→
+  1872→At every phase:
+  1873→
+  1874→1. Inspect the existing project.
+  1875→2. Do not unnecessarily rewrite working code.
+  1876→3. Reuse existing components where appropriate.
+  1877→4. Before modifying database schema, check existing migrations.
+  1878→5. Before creating a new component, check whether an equivalent already exists.
+  1879→6. Maintain TypeScript type safety.
+  1880→7. Do not introduce `any` unless absolutely necessary.
+  1881→8. Do not leave TODO placeholders for core functionality.
+  1882→9. Do not create fake APIs.
+  1883→10. Do not use mock payment success in production code.
+  1884→11. Do not bypass authentication for convenience.
+  1885→12. Do not disable security checks to make features work.
+  1886→13. Keep secrets server-side.
+  1887→14. Validate all input server-side.
+  1888→15. Provide proper loading/error/empty states.
+  1889→
+  1890→---
+  1891→
+  1892→# 52. AGENTIC CODING BEHAVIOR
+  1893→
+  1894→You are acting as a senior software architect + senior full-stack engineer + security engineer.
+  1895→
+  1896→Before making changes:
+  1897→
+  1898→* Inspect the repository.
+  1899→* Identify the existing framework.
+  1900→* Identify existing dependencies.
+  1901→* Identify existing routes.
+  1902→* Identify existing database schema.
+  1903→* Identify existing authentication.
+  1904→* Identify existing UI components.
+  1905→* Identify environment variables.
+  1906→* Identify existing integrations.
+  1907→
+  1908→Then produce a concise implementation plan.
+  1909→
+  1910→After each major implementation phase:
+  1911→
+  1912→* Run type checking.
+  1913→* Run linting.
+  1914→* Run tests.
+  1915→* Check database migrations.
+  1916→* Check build.
+  1917→* Fix errors before proceeding.
+  1918→
+  1919→Do not claim something is complete unless it actually works.
+  1920→
+  1921→When an external service cannot be tested locally, implement the production integration correctly and provide a safe test strategy.
+  1922→
+  1923→---
+  1924→
+  1925→# 53. EDGE CASES TO HANDLE
+  1926→
+  1927→Explicitly consider:
+  1928→
+  1929→* Student below minimum age
+  1930→* Student above maximum age
+  1931→* Birthday on eligibility boundary
+  1932→* Duplicate student email
+  1933→* Duplicate teacher email
+  1934→* Same student added by multiple teachers
+  1935→* Duplicate registration
+  1936→* Payment opened but abandoned
+  1937→* Payment successful but browser closed
+  1938→* Razorpay webhook arrives before frontend callback
+  1939→* Webhook arrives multiple times
+  1940→* Payment amount mismatch
+  1941→* Payment signature invalid
+  1942→* Refund
+  1943→* Student uploads corrupted PDF
+  1944→* Student uploads renamed non-PDF
+  1945→* Student uploads >5 MB
+  1946→* Student uploads malicious/malformed PDF
+  1947→* Upload succeeds but database update fails
+  1948→* Examiner assigned twice
+  1949→* Examiner submits evaluation twice
+  1950→* Examiner loses connection while evaluating
+  1951→* Admin changes competition deadline
+  1952→* Competition closes while user is uploading
+  1953→* Multiple examiners have different scores
+  1954→* Examiner evaluation reopened
+  1955→* Result recalculated
+  1956→* Result published and later corrected
+  1957→
+  1958→Design the system so these cases do not corrupt data.
+  1959→
+  1960→---
+  1961→
+  1962→# 54. FINAL ACCEPTANCE CRITERIA
+  1963→
+  1964→The project will be considered complete only when:
+  1965→
+  1966→* Student registration works.
+  1967→* Teacher registration works.
+  1968→* Teacher can add students.
+  1969→* Email verification works.
+  1970→* Age eligibility works.
+  1971→* Competition registration works.
+  1972→* Razorpay payment works securely.
+  1973→* Payment webhook works.
+  1974→* Payment records appear in Finance.
+  1975→* Thank-you page works.
+  1976→* Confirmation email works.
+  1977→* Competition notifications work.
+  1978→* Student can securely upload PDF.
+  1979→* PDF validation works.
+  1980→* 5 MB limit works.
+  1981→* Cloudinary storage works.
+  1982→* Examiner login works.
+  1983→* Admin can assign examiners.
+  1984→* Multiple examiners can evaluate one essay.
+  1985→* Examiner evaluation workspace works.
+  1986→* PDF viewer works.
+  1987→* OCR/text reference functionality works where technically supported.
+  1988→* Marks and justification are saved.
+  1989→* Average marks are calculated correctly.
+  1990→* Results can be published.
+  1991→* Student can see published result.
+  1992→* Audit logs capture critical actions.
+  1993→* Admin settings work.
+  1994→* RBAC prevents unauthorized access.
+  1995→* Financial information is protected.
+  1996→* Production build succeeds.
+  1997→* Application can deploy to Vercel.
+  1998→* Neon database works.
+  1999→* Resend works.
+  2000→* Cloudinary works.
+
+[showing lines 1-2000 of 2041; use offset=2001 with limit to continue reading]

@@ -1,0 +1,2040 @@
+# MASTER PROJECT PROMPT — ONLINE ESSAY WRITING COMPETITION MANAGEMENT SYSTEM
+
+## 1. PROJECT OVERVIEW
+
+Build a complete, production-ready **Online Essay Writing Competition Management System**.
+
+The system will be used to organize essay-writing competitions for school students.
+
+The application must support:
+
+* Student registration
+* Teacher registration
+* Teacher-assisted student registration
+* Student profile management
+* Age-based competition eligibility
+* School information
+* Registration fee collection
+* Razorpay payment integration
+* Email verification
+* Competition notifications
+* Essay PDF upload
+* Secure file validation
+* Cloudinary file storage
+* Examiner management
+* Multiple examiners evaluating the same essay
+* Examiner marks, comments and justification
+* OCR-assisted quotation/reference from essays
+* Automatic average/final score calculation
+* Administrative financial management
+* Complete audit logging
+* Admin dashboard
+* Competition configuration
+* Notification management
+* Production deployment on Vercel
+* Neon PostgreSQL database
+* Resend email service
+* Cloudinary file storage
+
+The system must be designed as a **real production application**, not as a demo, prototype, or toy project.
+
+---
+
+# 2. REQUIRED TECHNOLOGY STACK
+
+Use a modern, maintainable stack compatible with Vercel.
+
+Preferred stack:
+
+* Next.js with App Router
+* TypeScript
+* React
+* Tailwind CSS
+* shadcn/ui or equivalent professional component system
+* PostgreSQL
+* Neon PostgreSQL
+* Prisma ORM or Drizzle ORM
+* Resend for transactional emails
+* Razorpay for payments
+* Cloudinary for essay/file storage
+* Server-side API routes / Server Actions where appropriate
+* Secure authentication with role-based authorization
+
+Use environment variables for all secrets.
+
+Never hard-code:
+
+* Razorpay keys
+* Database credentials
+* Resend API keys
+* Cloudinary credentials
+* Authentication secrets
+* Encryption keys
+* Other sensitive configuration
+
+---
+
+# 3. IMPORTANT DEVELOPMENT RULE
+
+Do NOT immediately start generating random pages.
+
+First perform a complete project analysis.
+
+Before implementation:
+
+1. Understand all requirements.
+2. Identify entities and relationships.
+3. Design the database schema.
+4. Design authentication and authorization.
+5. Design all user roles.
+6. Design payment lifecycle.
+7. Design essay upload lifecycle.
+8. Design examiner workflow.
+9. Design audit logging.
+10. Design admin configuration.
+11. Design notification architecture.
+12. Design deployment architecture.
+13. Identify security risks.
+14. Identify edge cases.
+15. Prepare an implementation roadmap.
+
+Then implement the project incrementally.
+
+Do not make architectural decisions that will create unnecessary technical debt.
+
+---
+
+# 4. USER ROLES
+
+The system must support at least these roles:
+
+## SUPER ADMIN
+
+Full system access.
+
+Can:
+
+* Manage administrators
+* Manage teachers
+* Manage students
+* Manage competitions
+* Configure eligibility rules
+* Configure registration fees
+* View payments
+* View financial reports
+* Manage examiners
+* Assign examiners
+* View examination results
+* Override scores where authorized
+* Manage notifications
+* Manage email templates
+* View audit logs
+* Manage system settings
+* Manage file settings
+* Manage security settings
+* Manage Razorpay configuration
+* Manage Cloudinary configuration
+* Manage competition status
+* Export data
+* Manage application-wide settings
+
+---
+
+## ADMIN
+
+Administrative access according to permissions.
+
+Implement permission-based authorization instead of assuming every admin has unlimited access.
+
+Example permissions:
+
+* STUDENT_VIEW
+* STUDENT_EDIT
+* TEACHER_VIEW
+* TEACHER_EDIT
+* COMPETITION_MANAGE
+* PAYMENT_VIEW
+* PAYMENT_MANAGE
+* EXAMINER_MANAGE
+* EXAM_ASSIGN
+* RESULT_VIEW
+* RESULT_MANAGE
+* NOTIFICATION_MANAGE
+* AUDIT_VIEW
+* SETTINGS_MANAGE
+
+---
+
+## TEACHER
+
+Teachers can:
+
+* Register
+* Verify email
+* Login
+* Create/manage their teacher profile
+* Add students
+* View students added by them
+* Monitor student registration status
+* Monitor payment status
+* View competition eligibility
+* View student submission status
+* Receive relevant notifications
+
+A teacher may register multiple students.
+
+Each student should maintain a relationship with the teacher who registered/referred them.
+
+---
+
+## STUDENT
+
+Students can:
+
+* Register
+* Verify email
+* Login
+* Complete profile
+* Provide school information
+* Provide date of birth
+* Automatically determine age
+* See eligible competition category
+* Apply for competition
+* Pay registration fee
+* Receive payment confirmation
+* Receive competition notifications
+* Upload essay PDF
+* View submission status
+* View relevant competition information
+* View result when officially published
+
+Students must NOT be able to access administrative or examiner functionality.
+
+---
+
+## EXAMINER
+
+Examiners can:
+
+* Login through a dedicated examiner portal
+* View essays assigned to them
+* Open PDF essays
+* Read essay
+* Give marks
+* Add justification
+* Add comments
+* Select/copy relevant essay text
+* Use OCR-assisted text extraction where required
+* Save draft evaluation
+* Submit final evaluation
+* View previously evaluated essays according to permissions
+
+An examiner must only access essays assigned to them.
+
+---
+
+# 5. COMPETITION MANAGEMENT
+
+Admin must be able to create and manage competitions.
+
+Competition fields should include:
+
+* Competition ID
+* Competition name
+* Description
+* Academic year
+* Start date
+* Registration opening date
+* Registration closing date
+* Essay submission opening date
+* Essay submission closing date
+* Essay writing competition date
+* Result declaration date
+* Minimum age
+* Maximum age
+* Age calculation date
+* Registration fee
+* Maximum essay file size
+* Allowed file formats
+* Competition status
+
+Competition statuses could include:
+
+* DRAFT
+* REGISTRATION_OPEN
+* REGISTRATION_CLOSED
+* SUBMISSION_OPEN
+* SUBMISSION_CLOSED
+* EVALUATION_IN_PROGRESS
+* RESULT_PENDING
+* RESULT_PUBLISHED
+* COMPLETED
+* CANCELLED
+
+Do not hard-code competition dates.
+
+Everything must be configurable from Admin.
+
+---
+
+# 6. AGE-BASED ELIGIBILITY
+
+The student must provide:
+
+* Date of birth
+
+The system must calculate age automatically.
+
+Do not allow users to manually enter an arbitrary age as the authoritative value.
+
+Eligibility should be calculated from:
+
+* Date of birth
+* Competition's configured age rules
+* Competition's configured age calculation date
+
+Admin must be able to configure age groups.
+
+Example:
+
+* Group A: 10–12
+* Group B: 13–15
+* Group C: 16–18
+
+Do NOT hard-code these examples.
+
+Make age categories configurable.
+
+---
+
+# 7. STUDENT PROFILE
+
+Student profile should contain appropriate fields such as:
+
+### Personal Information
+
+* Full name
+* Date of birth
+* Gender if required
+* Email
+* Mobile
+* Address
+* Profile photo if required
+
+### School Information
+
+* School name
+* School address
+* Board
+* Class
+* Section
+* Roll number
+* Student ID if applicable
+
+### Guardian Information
+
+* Guardian name
+* Relationship
+* Guardian mobile
+* Guardian email
+
+### Competition Information
+
+* Competition
+* Age category
+* Registration number
+* Registration status
+* Payment status
+* Essay submission status
+
+Do not collect unnecessary sensitive information.
+
+---
+
+# 8. TEACHER PROFILE
+
+Teacher profile should contain:
+
+* Full name
+* Email
+* Mobile
+* School name
+* School address
+* Designation
+* Employee/teacher ID if required
+* Address
+* Profile photo if required
+
+Teacher dashboard should show:
+
+* Total students
+* Registered students
+* Paid students
+* Pending payments
+* Essay submissions
+* Submission status
+* Competition notifications
+
+---
+
+# 9. REGISTRATION FLOW
+
+### Teacher registration
+
+Teacher:
+
+1. Opens registration page.
+2. Enters required information.
+3. Creates account.
+4. Receives verification email through Resend.
+5. Verifies email.
+6. Logs in.
+7. Accesses Teacher Dashboard.
+8. Adds students.
+
+### Student direct registration
+
+Student:
+
+1. Opens registration.
+2. Provides details.
+3. Verifies email.
+4. Completes profile.
+5. Selects/apply for eligible competition.
+6. Pays registration fee.
+7. Payment verified by server.
+8. Registration becomes confirmed.
+9. Thank You / Confirmation page displayed.
+10. Confirmation email sent.
+
+### Teacher-assisted registration
+
+Teacher:
+
+1. Logs into dashboard.
+2. Adds student.
+3. Student record is created.
+4. Student receives invitation/verification email.
+5. Student verifies email.
+6. Student sets/activates login credentials.
+7. Student completes profile.
+8. Student pays registration fee.
+9. Registration is confirmed.
+
+Never automatically mark a registration as paid merely because the Razorpay checkout page was opened.
+
+---
+
+# 10. RAZORPAY PAYMENT INTEGRATION
+
+Integrate Razorpay securely.
+
+Registration fee default:
+
+₹100
+
+But ₹100 must be configurable from Admin.
+
+Payment architecture must include:
+
+* Payment order creation
+* Razorpay checkout
+* Server-side payment verification
+* Signature verification
+* Payment status
+* Payment ID
+* Order ID
+* Signature
+* Amount
+* Currency
+* Timestamp
+* User
+* Competition
+* Registration ID
+
+Possible statuses:
+
+* CREATED
+* PENDING
+* SUCCESS
+* FAILED
+* REFUNDED
+* PARTIALLY_REFUNDED
+* CANCELLED
+
+Use Razorpay webhook handling where appropriate.
+
+The webhook must be idempotent.
+
+Never trust only the client-side payment success response.
+
+The server must verify payment authenticity.
+
+Prevent:
+
+* Duplicate payment records
+* Duplicate registration
+* Amount manipulation
+* Replay attacks
+* Unauthorized payment status updates
+
+---
+
+# 11. FINANCIAL ADMIN PANEL
+
+Create a dedicated Finance section.
+
+Admin should be able to view:
+
+* Total registrations
+* Successful payments
+* Pending payments
+* Failed payments
+* Refunded payments
+* Total collected amount
+* Competition-wise revenue
+* Date-wise revenue
+* Payment gateway transaction IDs
+* Razorpay order IDs
+* Razorpay payment IDs
+* Registration numbers
+* Student
+* Teacher/referrer
+* Competition
+* Payment status
+* Payment date
+
+Provide filters:
+
+* Date range
+* Competition
+* Payment status
+* Student
+* Teacher
+* Payment ID
+* Registration number
+
+Provide export capability such as CSV/Excel-compatible export.
+
+Financial records should be immutable from normal admin UI.
+
+If corrections are necessary, create adjustment/refund records rather than silently modifying historical transactions.
+
+---
+
+# 12. PAYMENT THANK-YOU PAGE
+
+After verified successful payment:
+
+Show a professional confirmation page containing:
+
+* Thank you message
+* Student name
+* Registration number
+* Competition name
+* Payment status
+* Amount paid
+* Payment ID
+* Date
+* Next steps
+* Essay submission information
+* Competition date if already announced
+
+Also send confirmation email through Resend.
+
+---
+
+# 13. EMAIL SYSTEM
+
+Use Resend.
+
+Implement reusable email templates.
+
+Required emails:
+
+1. Student registration
+2. Email verification
+3. Teacher registration
+4. Teacher email verification
+5. Student invitation from teacher
+6. Payment success
+7. Payment failure
+8. Registration confirmation
+9. Essay submission confirmation
+10. Competition date announcement
+11. Important competition notification
+12. Result publication
+13. Examiner assignment
+14. Examiner reminder
+
+Admin should be able to configure email templates where practical.
+
+Use a centralized email service rather than scattering email logic throughout the application.
+
+---
+
+# 14. NOTIFICATION SYSTEM
+
+Implement a notification system.
+
+Support:
+
+* In-app notifications
+* Email notifications
+
+Admin should be able to create announcements.
+
+Announcement fields:
+
+* Title
+* Message
+* Audience
+* Competition
+* Scheduled date/time
+* Status
+* Created by
+* Created timestamp
+
+Audience examples:
+
+* All students
+* Registered students
+* Students of specific competition
+* Teachers
+* Examiners
+* Specific users
+
+---
+
+# 15. ESSAY SUBMISSION
+
+Students must have a dedicated Essay Submission section.
+
+Only PDF files are allowed.
+
+Maximum file size:
+
+5 MB
+
+Do not trust file extension alone.
+
+Perform server-side validation.
+
+Validate:
+
+* MIME type
+* File signature / magic bytes
+* PDF structure
+* File size
+* PDF readability
+* Corruption
+* Malformed file
+* Potentially dangerous embedded content
+* Filename
+* Metadata where relevant
+
+Reject:
+
+* Non-PDF files renamed as `.pdf`
+* Corrupted PDFs
+* Oversized files
+* Invalid files
+* Suspicious/malformed files
+
+---
+
+# 16. FILE SECURITY
+
+Because uploaded documents are user-generated content, implement a strong upload security policy.
+
+Consider:
+
+* MIME validation
+* Magic-byte validation
+* PDF parser validation
+* Sanitization
+* Safe filenames
+* Random storage identifiers
+* No executable content
+* No direct execution
+* Access-controlled delivery
+* Signed/private Cloudinary URLs where appropriate
+* Rate limiting
+* Upload quotas
+* Authentication requirement
+
+Do not expose internal storage paths.
+
+Do not trust:
+
+* Client filename
+* Client MIME type
+* Client file size
+* Client metadata
+
+Server must independently validate everything.
+
+---
+
+# 17. CLOUDINARY STORAGE
+
+Use Cloudinary for essay storage.
+
+Store only necessary metadata in PostgreSQL.
+
+Essay record should contain:
+
+* Essay ID
+* Student ID
+* Competition ID
+* Cloudinary public/resource identifier
+* File URL or secure delivery reference
+* File size
+* MIME type
+* Original filename
+* Upload timestamp
+* Verification status
+* Submission status
+* Hash/checksum if appropriate
+
+The system should be able to detect duplicate uploads using file hashing where practical.
+
+---
+
+# 18. ESSAY SUBMISSION STATES
+
+Example:
+
+* NOT_STARTED
+* UPLOAD_PENDING
+* UPLOADING
+* VALIDATING
+* VALID
+* INVALID
+* SUBMITTED
+* LOCKED
+* UNDER_EVALUATION
+* EVALUATED
+* RESULT_PUBLISHED
+
+Once the competition submission deadline passes, students must not be able to modify the submission unless Admin explicitly reopens it.
+
+---
+
+# 19. EXAMINER MANAGEMENT
+
+Admin must be able to:
+
+* Create examiner accounts
+* Activate/deactivate examiners
+* View examiner profile
+* Assign competitions
+* Assign essays
+* Reassign essays
+* View examiner workload
+* View evaluation progress
+* View submitted evaluations
+* Reopen evaluation if authorized
+
+Examiner accounts must have restricted access.
+
+---
+
+# 20. MULTIPLE EXAMINER EVALUATION
+
+Multiple examiners can evaluate the same essay.
+
+Example:
+
+Essay X:
+
+* Examiner A → 82
+* Examiner B → 88
+* Examiner C → 85
+
+Final average:
+
+85
+
+The system must automatically calculate the average according to the configured scoring policy.
+
+Do not simply overwrite previous examiner marks.
+
+Every examiner evaluation must remain independently stored.
+
+Store:
+
+* Examiner ID
+* Essay ID
+* Score
+* Justification
+* Comments
+* OCR references
+* Evaluation timestamp
+* Submission/finalization status
+* Version if edited/reopened
+
+Admin should be able to configure:
+
+* Number of examiners
+* Maximum marks
+* Minimum marks
+* Averaging method
+* Whether outlier handling is required
+* Tie-breaking policy if needed
+
+---
+
+# 21. EXAMINER EVALUATION UI
+
+Build a professional examiner workspace.
+
+Recommended three-column layout:
+
+### LEFT PANEL
+
+Essay list.
+
+Show:
+
+* Essay ID
+* Student/anonymous identifier
+* Status
+* Assignment status
+* Evaluation status
+
+Include:
+
+* Search
+* Filters
+* Sort
+* Pagination
+* Next/previous essay
+
+---
+
+### MIDDLE PANEL
+
+PDF viewer.
+
+Requirements:
+
+* Load essay PDF
+* Zoom
+* Page navigation
+* Full-screen
+* Text selection where supported
+* Responsive PDF rendering
+
+Do not expose unnecessary student personal information to examiners.
+
+Consider anonymous/blind evaluation if configured by Admin.
+
+---
+
+### RIGHT PANEL
+
+Evaluation form.
+
+Fields:
+
+* Criteria
+* Marks
+* Total marks
+* Justification
+* Comments
+* Selected essay quotation/reference
+* OCR/reference text
+* Save draft
+* Submit final evaluation
+
+Example scoring criteria may include:
+
+* Content
+* Relevance
+* Originality
+* Language
+* Structure
+* Presentation
+
+But make criteria configurable from Admin.
+
+---
+
+# 22. OCR SUPPORT
+
+Where technically appropriate, provide OCR-assisted extraction.
+
+The examiner should be able to select/reference text from the essay for remarks.
+
+Example:
+
+Examiner selects a section of the essay.
+
+System extracts/copies text.
+
+Examiner can attach that text to:
+
+* Justification
+* Comment
+* Evaluation criterion
+
+Do not automatically trust OCR as authoritative.
+
+Clearly distinguish:
+
+* Original PDF content
+* OCR-generated text
+* Examiner-written comments
+
+If OCR cannot reliably process a PDF, the examiner should still be able to manually enter remarks.
+
+---
+
+# 23. BLIND EXAMINATION
+
+Support optional anonymous evaluation.
+
+Admin should be able to configure whether examiners can see:
+
+* Student name
+* School name
+* Teacher name
+* Contact information
+
+Default recommendation:
+
+Examiners should see only the information necessary to evaluate the essay.
+
+---
+
+# 24. RESULT CALCULATION
+
+After all required examiner evaluations are completed:
+
+Calculate final result.
+
+Example:
+
+Final Score =
+Average of valid examiner scores
+
+Store:
+
+* Individual examiner scores
+* Average score
+* Final score
+* Rank if applicable
+* Category
+* Result status
+
+Do not delete or overwrite individual evaluations.
+
+Result calculation should be reproducible.
+
+---
+
+# 25. AUDIT LOG
+
+Implement a comprehensive audit log.
+
+Track important actions including:
+
+* Login
+* Logout
+* Registration
+* Profile changes
+* Competition creation
+* Competition updates
+* Payment creation
+* Payment verification
+* Payment failure
+* Refund
+* Essay upload
+* Essay validation failure
+* Essay deletion/replacement
+* Examiner assignment
+* Examiner reassignment
+* Evaluation submission
+* Evaluation modification
+* Result calculation
+* Result publication
+* Admin setting changes
+* Permission changes
+
+Audit fields:
+
+* ID
+* User ID
+* User role
+* Action
+* Entity type
+* Entity ID
+* Previous value where appropriate
+* New value where appropriate
+* IP address where appropriate
+* User agent where appropriate
+* Timestamp
+* Request/correlation ID
+
+Audit records should not be editable through normal UI.
+
+---
+
+# 26. ADMIN SETTINGS
+
+Create a proper Admin Settings area.
+
+Organize settings into sections.
+
+## General
+
+* Organization name
+* Logo
+* Contact email
+* Contact phone
+* Address
+* Website
+* Timezone
+
+## Competition
+
+* Default registration fee
+* Age calculation policy
+* Competition rules
+* Submission deadline
+* Maximum essay size
+* Allowed file types
+
+## Payment
+
+* Razorpay configuration status
+* Currency
+* Payment mode
+* Webhook status
+* Payment settings
+
+Never expose secret keys in the frontend.
+
+## Email
+
+* Resend configuration status
+* Sender name
+* Sender email
+* Email templates
+
+## Storage
+
+* Cloudinary configuration
+* Upload limits
+* Storage policies
+
+## Examination
+
+* Examiner count
+* Maximum marks
+* Evaluation criteria
+* Average calculation
+* Blind evaluation
+
+## Security
+
+* Session configuration
+* Password policies
+* Rate limiting
+* Login attempt policies
+* Upload restrictions
+
+## Notifications
+
+* Email notification settings
+* In-app notification settings
+* Announcement defaults
+
+---
+
+# 27. ADMIN DASHBOARD
+
+Create a professional dashboard.
+
+Dashboard cards:
+
+* Total students
+* Total teachers
+* Total examiners
+* Active competitions
+* Total registrations
+* Paid registrations
+* Pending payments
+* Total revenue
+* Essays submitted
+* Essays pending evaluation
+* Completed evaluations
+* Results pending
+* Results published
+
+Charts:
+
+* Registration trend
+* Revenue trend
+* Competition participation
+* Payment status
+* Essay submission progress
+* Examiner evaluation progress
+
+Use server-side aggregation where practical.
+
+Do not expose sensitive financial data to unauthorized roles.
+
+---
+
+# 28. DATABASE DESIGN
+
+Create a normalized relational database.
+
+Likely entities include:
+
+* User
+* Role
+* Permission
+* UserRole
+* StudentProfile
+* TeacherProfile
+* ExaminerProfile
+* School
+* Competition
+* CompetitionCategory
+* Registration
+* Payment
+* PaymentEvent
+* EssaySubmission
+* EssayFile
+* ExaminerAssignment
+* ExaminerEvaluation
+* EvaluationCriterion
+* EvaluationScore
+* Result
+* Notification
+* Announcement
+* EmailVerificationToken
+* PasswordResetToken
+* AuditLog
+* SystemSetting
+
+Review and adjust this schema before implementation.
+
+Use:
+
+* Proper foreign keys
+* Unique constraints
+* Indexes
+* Transactions
+* Cascading rules carefully
+* Soft deletion where appropriate
+* Created/updated timestamps
+
+Do not store duplicated information unnecessarily.
+
+---
+
+# 29. SECURITY REQUIREMENTS
+
+Security is a first-class requirement.
+
+Implement:
+
+* Strong authentication
+* Role-based access control
+* Permission-based authorization
+* Secure password hashing
+* Email verification
+* Secure sessions
+* CSRF protection where applicable
+* Input validation
+* Output encoding
+* SQL injection prevention
+* XSS protection
+* Rate limiting
+* Brute-force protection
+* Secure headers
+* Content Security Policy
+* Secure cookies
+* Server-side authorization
+* File upload validation
+* Payment signature verification
+* Webhook verification
+* Audit logging
+
+Never rely solely on frontend authorization.
+
+Every sensitive API/server action must verify authorization server-side.
+
+---
+
+# 30. CONTENT SECURITY POLICY
+
+Implement a practical CSP appropriate for:
+
+* Next.js
+* Razorpay
+* Cloudinary
+* PDF viewer
+* Resend-related functionality where applicable
+
+Avoid using an unnecessarily permissive policy such as:
+
+`default-src *`
+
+Do not blindly use:
+
+`unsafe-eval`
+
+or unrestricted:
+
+`unsafe-inline`
+
+unless technically unavoidable and properly justified.
+
+Document any required CSP exceptions.
+
+---
+
+# 31. API / SERVER ARCHITECTURE
+
+Keep business logic separate from UI components.
+
+Recommended structure:
+
+* Authentication layer
+* Authorization layer
+* Validation layer
+* Service layer
+* Database layer
+* Payment service
+* Email service
+* Storage service
+* Notification service
+* Examination service
+* Audit service
+
+Avoid placing business logic directly inside React components.
+
+Use schemas for validation, preferably with Zod or equivalent.
+
+---
+
+# 32. ERROR HANDLING
+
+Create consistent error handling.
+
+Every user-facing error should be understandable.
+
+Examples:
+
+* Invalid email
+* Email already registered
+* Invalid age
+* Competition unavailable
+* Payment failed
+* Payment verification failed
+* Essay too large
+* Invalid PDF
+* Corrupted PDF
+* Upload failed
+* Unauthorized access
+* Evaluation already submitted
+
+Do not expose:
+
+* Database errors
+* Stack traces
+* Secrets
+* Internal service details
+
+to users.
+
+Log technical errors securely for administrators/developers.
+
+---
+
+# 33. UX REQUIREMENTS
+
+The UI must look like a professional production SaaS/admin application.
+
+Requirements:
+
+* Responsive
+* Desktop
+* Tablet
+* Mobile
+* Accessible forms
+* Clear validation messages
+* Loading states
+* Empty states
+* Error states
+* Success states
+* Confirmation dialogs
+* Toast notifications
+* Pagination
+* Search
+* Filtering
+* Sorting
+* Breadcrumbs
+* Consistent navigation
+
+Use a clean design system.
+
+Avoid unnecessarily complicated animations.
+
+---
+
+# 34. STUDENT DASHBOARD
+
+Include:
+
+### Overview
+
+* Competition status
+* Registration status
+* Payment status
+* Essay submission status
+* Important notifications
+
+### Profile
+
+* Personal details
+* School details
+* Guardian details
+
+### Competition
+
+* Eligible competitions
+* Registered competitions
+* Rules
+* Important dates
+
+### Payment
+
+* Payment history
+* Receipt/confirmation
+
+### Essay
+
+* Upload essay
+* Validation status
+* Submission status
+* Submission timestamp
+
+### Results
+
+* Result status
+* Final marks
+* Result publication information
+
+---
+
+# 35. TEACHER DASHBOARD
+
+Include:
+
+* Profile
+* Student list
+* Add student
+* Student registration status
+* Payment status
+* Submission status
+* Competition information
+* Notifications
+
+Allow teacher to search/filter students.
+
+---
+
+# 36. EXAMINER DASHBOARD
+
+Include:
+
+* Assigned essays
+* Pending evaluations
+* Completed evaluations
+* Progress percentage
+* Competition
+* Deadline
+* Evaluation workspace
+
+Show workload statistics.
+
+---
+
+# 37. ADMIN NAVIGATION
+
+Create a professional sidebar.
+
+Suggested navigation:
+
+### Dashboard
+
+### Users
+
+* Students
+* Teachers
+* Examiners
+* Administrators
+
+### Competitions
+
+* All Competitions
+* Categories
+* Eligibility
+* Important Dates
+
+### Registrations
+
+* All Registrations
+* Pending
+* Confirmed
+* Cancelled
+
+### Finance
+
+* Transactions
+* Revenue
+* Refunds
+* Payment Events
+* Reports
+
+### Essays
+
+* All Submissions
+* Pending Validation
+* Submitted
+* Under Evaluation
+* Evaluated
+
+### Examination
+
+* Examiner Management
+* Assignments
+* Evaluation Progress
+* Results
+
+### Notifications
+
+* Announcements
+* Notifications
+* Email Templates
+
+### Reports
+
+* Registration Reports
+* Financial Reports
+* Submission Reports
+* Examiner Reports
+* Result Reports
+
+### Audit Logs
+
+### Settings
+
+* General
+* Competition
+* Payment
+* Email
+* Storage
+* Security
+* Examination
+* Notifications
+
+---
+
+# 38. DATA EXPORT
+
+Admin should be able to export appropriate datasets.
+
+Examples:
+
+* Student list
+* Teacher list
+* Registration list
+* Payment report
+* Essay submission report
+* Examiner assignment report
+* Evaluation report
+* Final result report
+
+Exports must respect authorization and privacy.
+
+---
+
+# 39. PRODUCTION DEPLOYMENT
+
+Deployment target:
+
+### Frontend/API
+
+Vercel
+
+### Database
+
+Neon PostgreSQL
+
+### Email
+
+Resend
+
+### File storage
+
+Cloudinary
+
+### Payment
+
+Razorpay
+
+Create:
+
+`.env.example`
+
+with placeholders such as:
+
+* DATABASE_URL
+* AUTH_SECRET
+* RAZORPAY_KEY_ID
+* RAZORPAY_KEY_SECRET
+* RAZORPAY_WEBHOOK_SECRET
+* RESEND_API_KEY
+* RESEND_FROM_EMAIL
+* CLOUDINARY_CLOUD_NAME
+* CLOUDINARY_API_KEY
+* CLOUDINARY_API_SECRET
+
+Never commit `.env`.
+
+---
+
+# 40. FREE / LOW-COST PRODUCTION ARCHITECTURE
+
+Design the initial application so that it can run using free-tier services where their current limits permit.
+
+However:
+
+Do NOT compromise security or architecture merely to remain within a free tier.
+
+Clearly identify:
+
+* Free-tier assumptions
+* Storage limits
+* Database limits
+* Email limits
+* Cloudinary limits
+* Vercel limits
+* Razorpay transaction costs
+
+Build the application so services can be upgraded later without rewriting the architecture.
+
+---
+
+# 41. BACKGROUND JOBS
+
+Avoid unnecessary background infrastructure initially.
+
+Where possible, use:
+
+* Serverless functions
+* Webhooks
+* Database-driven status
+* Scheduled jobs supported by the deployment platform where available
+
+Potential background tasks:
+
+* Email delivery
+* Notification delivery
+* Evaluation reminders
+* Result calculation
+* Cleanup of abandoned uploads
+* Payment reconciliation
+
+Design these so they are idempotent.
+
+---
+
+# 42. IDEMPOTENCY
+
+Critical operations must be idempotent.
+
+Especially:
+
+* Razorpay webhook
+* Payment verification
+* Email sending
+* Essay submission
+* Examiner evaluation submission
+* Result calculation
+
+The same event must not create duplicate records.
+
+---
+
+# 43. TRANSACTIONAL INTEGRITY
+
+Use database transactions for operations such as:
+
+* Registration + payment state
+* Payment confirmation
+* Examiner assignment
+* Evaluation finalization
+* Result generation
+
+Do not allow partial state where possible.
+
+---
+
+# 44. TESTING
+
+Implement tests.
+
+At minimum:
+
+### Unit tests
+
+For:
+
+* Age calculation
+* Eligibility
+* Payment amount validation
+* Average score calculation
+* Registration state
+* File validation
+
+### Integration tests
+
+For:
+
+* Registration
+* Email verification
+* Payment
+* Webhook
+* Essay upload
+* Examiner evaluation
+* Result calculation
+
+### Security tests
+
+For:
+
+* Unauthorized API access
+* Role escalation
+* Invalid file upload
+* Payment manipulation
+* Duplicate webhook
+* Duplicate registration
+* IDOR attacks
+
+### E2E tests
+
+Cover the complete flow:
+
+Teacher → Student → Verification → Payment → Essay → Examiner → Evaluation → Result.
+
+---
+
+# 45. SEED DATA
+
+Create development seed data.
+
+Include:
+
+* Super Admin
+* Admin
+* Teacher
+* Student
+* Examiner
+* Competition
+* Age categories
+* Evaluation criteria
+
+Do not use real personal information.
+
+Clearly document development credentials.
+
+Never use seed passwords in production.
+
+---
+
+# 46. AUDITABLE STATE MACHINES
+
+Where appropriate, use explicit status/state transitions.
+
+For example:
+
+Registration:
+
+PENDING → VERIFIED → PAYMENT_PENDING → PAID → CONFIRMED → CANCELLED
+
+Essay:
+
+NOT_STARTED → UPLOADING → VALIDATING → VALID → SUBMITTED → LOCKED → UNDER_EVALUATION → EVALUATED
+
+Evaluation:
+
+ASSIGNED → IN_PROGRESS → SUBMITTED → LOCKED
+
+Prevent invalid state transitions.
+
+---
+
+# 47. ADMIN OVERRIDES
+
+Admin may need controlled overrides.
+
+Examples:
+
+* Reopen registration
+* Reopen essay submission
+* Reassign examiner
+* Reopen evaluation
+* Mark payment manually after verified reconciliation
+* Cancel registration
+* Correct profile information
+
+Every override must:
+
+1. Require appropriate permission.
+2. Require confirmation.
+3. Create an audit record.
+4. Preserve historical information.
+
+---
+
+# 48. PRIVACY
+
+The system contains student information.
+
+Apply privacy-by-design principles.
+
+Do not unnecessarily expose:
+
+* Student phone
+* Guardian information
+* Email
+* Address
+* School information
+
+to examiners or other students.
+
+Use least-privilege access.
+
+---
+
+# 49. DOCUMENTATION
+
+Create comprehensive documentation:
+
+`README.md`
+
+Include:
+
+* Project overview
+* Architecture
+* Tech stack
+* Installation
+* Environment variables
+* Database setup
+* Neon setup
+* Razorpay setup
+* Resend setup
+* Cloudinary setup
+* Local development
+* Production deployment
+* Database migration
+* Seed data
+* Testing
+* Troubleshooting
+
+Also create:
+
+`docs/ARCHITECTURE.md`
+
+`docs/DATABASE.md`
+
+`docs/SECURITY.md`
+
+`docs/PAYMENTS.md`
+
+`docs/DEPLOYMENT.md`
+
+`docs/EXAMINATION.md`
+
+---
+
+# 50. DEVELOPMENT PHASES
+
+Implement in phases.
+
+## PHASE 1 — FOUNDATION
+
+* Next.js setup
+* TypeScript
+* UI system
+* Database
+* ORM
+* Environment configuration
+* Authentication foundation
+* Base layout
+* Error handling
+* Logging
+
+## PHASE 2 — USERS
+
+* Student
+* Teacher
+* Examiner
+* Admin
+* Profiles
+* Roles
+* Permissions
+* Email verification
+
+## PHASE 3 — COMPETITION
+
+* Competition management
+* Age eligibility
+* Categories
+* Registration
+* Competition dates
+
+## PHASE 4 — PAYMENT
+
+* Razorpay
+* Orders
+* Verification
+* Webhooks
+* Payment history
+* Finance dashboard
+* Thank-you page
+
+## PHASE 5 — ESSAY
+
+* Upload
+* Validation
+* PDF security
+* Cloudinary
+* Submission workflow
+
+## PHASE 6 — EXAMINATION
+
+* Examiner management
+* Assignment
+* Examiner workspace
+* PDF viewer
+* OCR/text reference
+* Evaluation
+* Multiple examiners
+* Average score
+
+## PHASE 7 — RESULTS
+
+* Result calculation
+* Ranking
+* Publication
+* Student result view
+
+## PHASE 8 — NOTIFICATIONS
+
+* Resend
+* Templates
+* Announcements
+* In-app notifications
+
+## PHASE 9 — AUDIT & REPORTING
+
+* Audit logs
+* Finance reports
+* Registration reports
+* Evaluation reports
+* Export
+
+## PHASE 10 — SECURITY & PRODUCTION
+
+* Security audit
+* Rate limiting
+* CSP
+* Authorization audit
+* File security
+* Payment security
+* Error handling
+* Performance optimization
+* Vercel deployment
+
+---
+
+# 51. CRITICAL DEVELOPMENT INSTRUCTION
+
+At every phase:
+
+1. Inspect the existing project.
+2. Do not unnecessarily rewrite working code.
+3. Reuse existing components where appropriate.
+4. Before modifying database schema, check existing migrations.
+5. Before creating a new component, check whether an equivalent already exists.
+6. Maintain TypeScript type safety.
+7. Do not introduce `any` unless absolutely necessary.
+8. Do not leave TODO placeholders for core functionality.
+9. Do not create fake APIs.
+10. Do not use mock payment success in production code.
+11. Do not bypass authentication for convenience.
+12. Do not disable security checks to make features work.
+13. Keep secrets server-side.
+14. Validate all input server-side.
+15. Provide proper loading/error/empty states.
+
+---
+
+# 52. AGENTIC CODING BEHAVIOR
+
+You are acting as a senior software architect + senior full-stack engineer + security engineer.
+
+Before making changes:
+
+* Inspect the repository.
+* Identify the existing framework.
+* Identify existing dependencies.
+* Identify existing routes.
+* Identify existing database schema.
+* Identify existing authentication.
+* Identify existing UI components.
+* Identify environment variables.
+* Identify existing integrations.
+
+Then produce a concise implementation plan.
+
+After each major implementation phase:
+
+* Run type checking.
+* Run linting.
+* Run tests.
+* Check database migrations.
+* Check build.
+* Fix errors before proceeding.
+
+Do not claim something is complete unless it actually works.
+
+When an external service cannot be tested locally, implement the production integration correctly and provide a safe test strategy.
+
+---
+
+# 53. EDGE CASES TO HANDLE
+
+Explicitly consider:
+
+* Student below minimum age
+* Student above maximum age
+* Birthday on eligibility boundary
+* Duplicate student email
+* Duplicate teacher email
+* Same student added by multiple teachers
+* Duplicate registration
+* Payment opened but abandoned
+* Payment successful but browser closed
+* Razorpay webhook arrives before frontend callback
+* Webhook arrives multiple times
+* Payment amount mismatch
+* Payment signature invalid
+* Refund
+* Student uploads corrupted PDF
+* Student uploads renamed non-PDF
+* Student uploads >5 MB
+* Student uploads malicious/malformed PDF
+* Upload succeeds but database update fails
+* Examiner assigned twice
+* Examiner submits evaluation twice
+* Examiner loses connection while evaluating
+* Admin changes competition deadline
+* Competition closes while user is uploading
+* Multiple examiners have different scores
+* Examiner evaluation reopened
+* Result recalculated
+* Result published and later corrected
+
+Design the system so these cases do not corrupt data.
+
+---
+
+# 54. FINAL ACCEPTANCE CRITERIA
+
+The project will be considered complete only when:
+
+* Student registration works.
+* Teacher registration works.
+* Teacher can add students.
+* Email verification works.
+* Age eligibility works.
+* Competition registration works.
+* Razorpay payment works securely.
+* Payment webhook works.
+* Payment records appear in Finance.
+* Thank-you page works.
+* Confirmation email works.
+* Competition notifications work.
+* Student can securely upload PDF.
+* PDF validation works.
+* 5 MB limit works.
+* Cloudinary storage works.
+* Examiner login works.
+* Admin can assign examiners.
+* Multiple examiners can evaluate one essay.
+* Examiner evaluation workspace works.
+* PDF viewer works.
+* OCR/text reference functionality works where technically supported.
+* Marks and justification are saved.
+* Average marks are calculated correctly.
+* Results can be published.
+* Student can see published result.
+* Audit logs capture critical actions.
+* Admin settings work.
+* RBAC prevents unauthorized access.
+* Financial information is protected.
+* Production build succeeds.
+* Application can deploy to Vercel.
+* Neon database works.
+* Resend works.
+* Cloudinary works.
+* Razorpay works.
+* No secrets are exposed to the browser.
+* No critical TypeScript/build/lint errors remain.
+* Documentation is complete.
+
+---
+
+# 55. FIRST TASK — DO NOT IMPLEMENT YET
+
+Before writing application code, perform a **Project Architecture & Planning Review**.
+
+Return:
+
+1. Current repository analysis
+2. Recommended architecture
+3. Complete module list
+4. User-role matrix
+5. Database ERD description
+6. Database tables and relationships
+7. Authentication architecture
+8. Payment architecture
+9. Essay upload/security architecture
+10. Examiner evaluation architecture
+11. OCR architecture
+12. Notification architecture
+13. Audit-log architecture
+14. Admin navigation structure
+15. API/server-action structure
+16. Environment variable list
+17. Security threat model
+18. Deployment architecture
+19. Testing strategy
+20. Implementation phases
+21. Dependencies that should be installed
+22. Potential technical risks
+23. Questions/assumptions that need confirmation
+
+Do NOT start creating random UI screens before completing this architecture review.
+
+After the architecture review, proceed phase-by-phase, keeping the application runnable after every major phase.

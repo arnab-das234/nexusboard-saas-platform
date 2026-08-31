@@ -1,0 +1,554 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USER & AUTH ============
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  phone         String?
+  avatar        String?
+  emailVerified Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  roles         UserRole[]
+  permissions   AdminPermission[]
+  studentProfile  StudentProfile?
+  teacherProfile  TeacherProfile?
+  examinerProfile ExaminerProfile?
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  paymentsCreated Payment[]     @relation("CreatedBy")
+  emailTokens     EmailVerificationToken[]
+  passwordTokens  PasswordResetToken[]
+  userNotifications UserNotification[]
+
+  @@index([email])
+  @@index([isActive])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  users UserRole[]
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model AdminPermission {
+  id          String   @id @default(cuid())
+  userId      String
+  permission  String
+  grantedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permission])
+  @@index([userId])
+}
+
+// ============ PROFILES ============
+
+model StudentProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  dateOfBirth   DateTime
+  gender        String?
+  address       String?
+  schoolName    String
+  schoolAddress String?
+  board         String?
+  classGrade    String?
+  section       String?
+  rollNumber    String?
+  studentId     String?
+  guardianName  String?
+  guardianRelation String?
+  guardianPhone String?
+  guardianEmail String?
+  referredByTeacherId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teacher TeacherProfile? @relation(fields: [referredByTeacherId], references: [id])
+  registrations Registration[]
+  essays         EssaySubmission[]
+  results        Result[]
+
+  @@index([dateOfBirth])
+  @@index([schoolName])
+  @@index([referredByTeacherId])
+}
+
+model TeacherProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  schoolName    String
+  schoolAddress String?
+  designation   String?
+  employeeId    String?
+  address       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students StudentProfile[]
+}
+
+model ExaminerProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  specialization String?
+  qualification String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments    ExaminerAssignment[]
+  evaluations    ExaminerEvaluation[]
+  competitions   CompetitionExaminer[]
+
+  @@index([isActive])
+}
+
+// ============ COMPETITION ============
+
+model Competition {
+  id                      String   @id @default(cuid())
+  name                    String
+  description             String?
+  academicYear            String?
+  startDate               DateTime?
+  registrationOpenDate    DateTime?
+  registrationCloseDate   DateTime?
+  submissionOpenDate      DateTime?
+  submissionCloseDate     DateTime?
+  competitionDate         DateTime?
+  resultDeclarationDate   DateTime?
+  minAge                  Int
+  maxAge                  Int
+  ageCalculationDate      DateTime
+  registrationFee         Float    @default(100)
+  maxEssayFileSize        Int      @default(5242880)
+  allowedFileFormats      String   @default("application/pdf")
+  maxFileSizeMB           Int      @default(5)
+  status                  String   @default("DRAFT")
+  rules                   String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  categories       CompetitionCategory[]
+  registrations   Registration[]
+  essays          EssaySubmission[]
+  examiners       CompetitionExaminer[]
+  announcements   Announcement[]
+  criteria        EvaluationCriterion[]
+  evaluations     ExaminerEvaluation[]
+  results         Result[]
+  scoringConfig   ScoringConfig?
+
+  @@index([status])
+  @@index([academicYear])
+}
+
+model CompetitionCategory {
+  id            String   @id @default(cuid())
+  competitionId String
+  name          String
+  minAge        Int
+  maxAge        Int
+  description   String?
+  createdAt     DateTime @default(now())
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  registrations Registration[]
+  results     Result[]
+
+  @@unique([competitionId, name])
+  @@index([competitionId])
+}
+
+model CompetitionExaminer {
+  id            String   @id @default(cuid())
+  competitionId String
+  examinerId    String
+  assignedAt    DateTime @default(now())
+
+  competition Competition    @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  examiner    ExaminerProfile @relation(fields: [examinerId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionId, examinerId])
+}
+
+// ============ REGISTRATION ============
+
+model Registration {
+  id              String   @id @default(cuid())
+  registrationNo  String   @unique
+  studentId       String
+  competitionId   String
+  categoryId      String?
+  status          String   @default("PENDING")
+  registeredAt    DateTime @default(now())
+  confirmedAt     DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  student     StudentProfile      @relation(fields: [studentId], references: [id])
+  competition Competition         @relation(fields: [competitionId], references: [id])
+  category    CompetitionCategory? @relation(fields: [categoryId], references: [id])
+  payments    Payment[]
+  essays      EssaySubmission[]
+
+  @@index([studentId])
+  @@index([competitionId])
+  @@index([status])
+  @@index([registrationNo])
+}
+
+// ============ PAYMENT ============
+
+model Payment {
+  id               String   @id @default(cuid())
+  registrationId   String
+  razorpayOrderId  String   @unique
+  razorpayPaymentId String?  @unique
+  razorpaySignature String?
+  amount           Float
+  currency         String   @default("INR")
+  status           String   @default("CREATED")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  verifiedAt       DateTime?
+
+  registration   Registration @relation(fields: [registrationId], references: [id])
+  createdBy      User         @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById    String
+  events         PaymentEvent[]
+
+  @@index([registrationId])
+  @@index([status])
+  @@index([razorpayOrderId])
+  @@index([razorpayPaymentId])
+}
+
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  paymentId       String
+  eventType       String
+  eventData       String?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([eventType])
+}
+
+// ============ ESSAY SUBMISSION ============
+
+model EssaySubmission {
+  id              String   @id @default(cuid())
+  registrationId  String   @unique
+  studentId       String
+  competitionId   String
+  cloudinaryId    String?
+  fileUrl         String?
+  secureUrl       String?
+  fileName        String?
+  originalName    String?
+  fileSize        Int?
+  mimeType        String?
+  fileHash        String?
+  status          String   @default("NOT_STARTED")
+  submittedAt     DateTime?
+  validatedAt     DateTime?
+  validationNotes String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  registration  Registration         @relation(fields: [registrationId], references: [id])
+  student       StudentProfile      @relation(fields: [studentId], references: [id])
+  competition   Competition         @relation(fields: [competitionId], references: [id])
+  assignments   ExaminerAssignment[]
+  evaluations   ExaminerEvaluation[]
+  result        Result?
+
+  @@index([studentId])
+  @@index([competitionId])
+  @@index([status])
+  @@index([fileHash])
+}
+
+// ============ EXAMINATION ============
+
+model ExaminerAssignment {
+  id              String   @id @default(cuid())
+  essayId         String
+  examinerId      String
+  assignedBy      String?
+  assignedAt      DateTime @default(now())
+  status          String   @default("ASSIGNED")
+  deadline        DateTime?
+  reassignedAt    DateTime?
+  reassignedBy    String?
+
+  essay    EssaySubmission   @relation(fields: [essayId], references: [id], onDelete: Cascade)
+  examiner ExaminerProfile   @relation(fields: [examinerId], references: [id], onDelete: Cascade)
+  evaluation ExaminerEvaluation?
+
+  @@unique([essayId, examinerId])
+  @@index([examinerId])
+  @@index([status])
+  @@index([essayId])
+}
+
+model EvaluationCriterion {
+  id            String   @id @default(cuid())
+  competitionId String
+  name          String
+  description   String?
+  maxMarks      Int
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  scores      EvaluationScore[]
+
+  @@unique([competitionId, name])
+  @@index([competitionId])
+}
+
+model ExaminerEvaluation {
+  id              String   @id @default(cuid())
+  assignmentId    String   @unique
+  essayId         String
+  examinerId      String
+  competitionId   String
+  totalMarks      Float?
+  justification   String?
+  comments        String?
+  ocrReferences   String?
+  status          String   @default("ASSIGNED")
+  submittedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assignment  ExaminerAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  essay       EssaySubmission   @relation(fields: [essayId], references: [id])
+  examiner    ExaminerProfile   @relation(fields: [examinerId], references: [id])
+  competition Competition       @relation(fields: [competitionId], references: [id])
+  scores      EvaluationScore[]
+
+  @@index([essayId])
+  @@index([examinerId])
+  @@index([status])
+}
+
+model EvaluationScore {
+  id              String   @id @default(cuid())
+  evaluationId    String
+  criterionId     String
+  marks           Float
+  comments        String?
+
+  evaluation ExaminerEvaluation  @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criterion  EvaluationCriterion @relation(fields: [criterionId], references: [id])
+
+  @@unique([evaluationId, criterionId])
+  @@index([evaluationId])
+}
+
+// ============ RESULTS ============
+
+model Result {
+  id              String   @id @default(cuid())
+  essayId         String   @unique
+  competitionId   String
+  categoryId      String?
+  studentId       String
+  averageScore    Float?
+  finalScore      Float?
+  rank            Int?
+  status          String   @default("PENDING")
+  publishedAt     DateTime?
+  calculatedAt    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  essay       EssaySubmission       @relation(fields: [essayId], references: [id])
+  competition Competition           @relation(fields: [competitionId], references: [id])
+  category    CompetitionCategory?  @relation(fields: [categoryId], references: [id])
+  student     StudentProfile        @relation(fields: [studentId], references: [id])
+
+  @@index([competitionId])
+  @@index([categoryId])
+  @@index([studentId])
+  @@index([status])
+}
+
+// ============ NOTIFICATIONS ============
+
+model Announcement {
+  id            String   @id @default(cuid())
+  title         String
+  message       String
+  audience      String   @default("ALL")
+  competitionId String?
+  scheduledAt   DateTime?
+  status        String   @default("DRAFT")
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  competition     Competition?       @relation(fields: [competitionId], references: [id])
+  userNotifications UserNotification[]
+
+  @@index([status])
+  @@index([audience])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String
+  title         String
+  message       String
+  type          String   @default("INFO")
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model UserNotification {
+  id             String   @id @default(cuid())
+  userId         String
+  announcementId String?
+  isRead         Boolean  @default(false)
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement Announcement? @relation(fields: [announcementId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+// ============ EMAIL & PASSWORD TOKENS ============
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+// ============ SYSTEM SETTINGS ============
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  category  String
+  type      String   @default("STRING")
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+// ============ AUDIT LOG ============
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  userId         String?
+  userRole       String?
+  action         String
+  entityType     String?
+  entityId       String?
+  previousValue  String?
+  newValue       String?
+  ipAddress      String?
+  userAgent      String?
+  requestId      String?
+  createdAt      DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+// ============ SCORING CONFIG ============
+
+model ScoringConfig {
+  id              String   @id @default(cuid())
+  competitionId   String   @unique
+  examinerCount   Int      @default(3)
+  maxMarks        Int      @default(100)
+  minMarks        Int      @default(0)
+  averagingMethod String   @default("MEAN")
+  outlierHandling Boolean  @default(false)
+  blindEvaluation Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+}
