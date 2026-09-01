@@ -1,0 +1,807 @@
+     1→# Essay Writing Competition Management System — Architecture Document
+     2→
+     3→> **Version:** 0.2.1 | **Last Updated:** 2025 | **Status:** Active Development
+     4→
+     5→---
+     6→
+     7→## Table of Contents
+     8→
+     9→1. [Project Overview](#project-overview)
+    10→2. [High-Level Architecture Diagram](#high-level-architecture-diagram)
+    11→3. [Technology Stack](#technology-stack)
+    12→4. [Project Structure](#project-structure)
+    13→5. [Client-Side Architecture](#client-side-architecture)
+    14→6. [Server-Side Architecture](#server-side-architecture)
+    15→7. [State Management](#state-management)
+    16→8. [Authentication Flow](#authentication-flow)
+    17→9. [Role-Based Access Control](#role-based-access-control)
+    18→10. [Data Flow Diagrams](#data-flow-diagrams)
+    19→11. [Caching Strategy](#caching-strategy)
+    20→12. [Error Handling Architecture](#error-handling-architecture)
+    21→13. [Background Jobs Architecture](#background-jobs-architecture)
+    22→
+    23→---
+    24→
+    25→## Project Overview
+    26→
+    27→The Essay Writing Competition Management System is a full-stack web application designed to manage the complete lifecycle of essay writing competitions. It handles student registration, fee collection via Razorpay payments, PDF essay submission to Cloudinary, multi-examiner blind evaluation, automated score calculation, and result publication.
+    28→
+    29→**Key Capabilities:**
+    30→
+    31→- **Multi-role user management** — 5 distinct roles (SUPER_ADMIN, ADMIN, TEACHER, STUDENT, EXAMINER) with granular permission system
+    32→- **Competition lifecycle** — Draft → Registration → Submission → Evaluation → Results → Completion
+    33→- **Payment processing** — Razorpay integration with order creation, signature verification, and webhook handling
+    34→- **Blind evaluation** — Configurable per competition; examiners evaluate without seeing student identity
+    35→- **Multi-examiner scoring** — Configurable N examiners per essay with MEAN, MEDIAN, or TRIMMED_MEAN averaging
+    36→- **Audit logging** — Immutable audit trail for all critical operations
+    37→- **Real-time notifications** — In-app notification system for all user roles
+    38→
+    39→---
+    40→
+    41→## High-Level Architecture Diagram
+    42→
+    43→```
+    44→┌─────────────────────────────────────────────────────────────────────────────┐
+    45→│                              CLIENT (Browser)                                │
+    46→│  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐  ┌───────────────┐  │
+    47→│  │  React SPA    │  │  Zustand      │  │  TanStack    │  │  shadcn/ui    │  │
+    48→│  │  (App Shell)  │  │  Stores       │  │  Query       │  │  Components   │  │
+    49→│  └──────┬───────┘  └──────┬────────┘  └──────┬───────┘  └──────┬────────┘  │
+    50→│         │                  │                  │                  │           │
+    51→│         └──────────────────┴──────────────────┴──────────────────┘           │
+    52→│                                    │                                         │
+    53→└────────────────────────────────────┼─────────────────────────────────────────┘
+    54→                                     │ HTTPS / JSON
+    55→                                     ▼
+    56→┌─────────────────────────────────────────────────────────────────────────────┐
+    57→│                         NEXT.JS 16 APP SERVER                                │
+    58→│  ┌──────────────────────────────────────────────────────────────────────┐   │
+    59→│  │                      API Routes (src/app/api/)                       │   │
+    60→│  │  ┌────────┐ ┌────────────┐ ┌─────────┐ ┌──────────┐ ┌────────────┐  │   │
+    61→│  │  │ /auth  │ │/competitns │ │/paymnts │ │ /essays  │ │/evaluation │  │   │
+    62→│  │  │        │ │            │ │         │ │          │ │            │  │   │
+    63→│  │  │/users  │ │/registers  │ │/dashbrd │ │/audit    │ │/notify     │  │   │
+    64→│  │  │        │ │            │ │         │ │          │ │            │  │   │
+    65→│  │  │/examin │ │/announce   │ │/settings│ │/notific  │ │            │  │   │
+    66→│  │  └───┬────┘ └─────┬──────┘ └────┬────┘ └────┬─────┘ └─────┬──────┘  │   │
+    67→│  └──────┼────────────┼────────────┼────────────┼─────────────┼─────────┘   │
+    68→│         │            │            │            │             │             │
+    69→│  ┌──────┴────────────┴────────────┴────────────┴─────────────┴─────────┐   │
+    70→│  │                        MIDDLEWARE LAYER                              │   │
+    71→│  │  • Input validation  • Auth check  • Role check  • Audit logging    │   │
+    72→│  └──────┬────────────┬────────────┬────────────┬─────────────┬─────────┘   │
+    73→└─────────┼────────────┼────────────┼────────────┼─────────────┼─────────────┘
+    74→          │            │            │            │             │
+    75→          ▼            ▼            ▼            ▼             ▼
+    76→┌─────────────┐  ┌─────────────┐  ┌──────────┐  ┌────────────┐  ┌───────────┐
+    77→│  PRISMA     │  │  RAZORPAY   │  │ CLOUDINARY│  │  RESEND    │  │  LOCAL    │
+    78→│  ORM        │  │  API        │  │  API      │  │  EMAIL     │  │  CACHE    │
+    79→│             │  │             │  │           │  │  API       │  │  (none)  │
+    80→└──────┬──────┘  └──────┬──────┘  └─────┬─────┘  └─────┬──────┘  └───────────┘
+    81→       │                │               │              │
+    82→       ▼                │               │              ▼
+    83→┌─────────────┐         │               │      ┌───────────┐
+    84→│  DATABASE   │         │               │      │  STUDENT  │
+    85→│             │         │               │      │  INBOXES  │
+    86→│  SQLite/    │         │               │      │           │
+    87→│  PostgreSQL │         │               │      └───────────┘
+    88→└─────────────┘         │               │
+    89→                        │               │
+    90→              ┌─────────┴──────┐ ┌──────┴──────┐
+    91→              │  PAYMENT      │ │  FILE       │
+    92→              │  GATEWAY      │ │  STORAGE    │
+    93→              │  (Razorpay)   │ │  (CDN)      │
+    94→              └──────────────┘ └─────────────┘
+    95→```
+    96→
+    97→---
+    98→
+    99→## Technology Stack
+   100→
+   101→| Layer | Technology | Version | Notes |
+   102→|-------|-----------|---------|-------|
+   103→| **Framework** | Next.js (App Router) | ^16.1.1 | React Server Components, API Routes |
+   104→| **Language** | TypeScript | ^5 | Strict mode, full type coverage |
+   105→| **Runtime** | Bun | Latest | Package manager & dev server |
+   106→| **React** | React | ^19.0.0 | Concurrent features, hooks |
+   107→| **Styling** | Tailwind CSS | ^4 | Utility-first, CSS-in-class |
+   108→| **UI Library** | shadcn/ui (New York) | — | Radix UI primitives, accessible |
+   109→| **Icons** | Lucide React | ^0.525.0 | Tree-shakeable SVG icons |
+   110→| **Database ORM** | Prisma | ^6.11.1 | Type-safe query builder |
+   111→| **Database (Dev)** | SQLite | — | Zero-config local development |
+   112→| **Database (Prod)** | Neon PostgreSQL | — | Serverless, Vercel-native |
+   113→| **Client State** | Zustand | ^5.0.6 | Lightweight, with persist middleware |
+   114→| **Server State** | TanStack Query | ^5.82.0 | Caching, refetch, optimistic updates |
+   115→| **Forms** | React Hook Form | ^7.60.0 | Performant form state management |
+   116→| **Validation** | Zod | ^4.0.2 | Schema-based input validation |
+   117→| **Animations** | Framer Motion | ^12.23.2 | View transitions, micro-interactions |
+   118→| **Charts** | Recharts | ^2.15.4 | Dashboard analytics |
+   119→| **Tables** | TanStack Table | ^8.21.3 | Headless, sortable, paginated |
+   120→| **Date Utils** | date-fns | ^4.1.0 | Tree-shakeable date formatting |
+   121→| **Payments** | Razorpay | — | Indian payment gateway (planned) |
+   122→| **File Storage** | Cloudinary | — | PDF essay file hosting (planned) |
+   123→| **Email** | Resend | — | Transactional email (planned) |
+   124→| **Auth** | NextAuth.js v4 | ^4.24.11 | Available but not yet integrated |
+   125→| **Drag & Drop** | dnd-kit | ^6.3.1 | Sortable lists |
+   126→| **Markdown** | react-markdown | ^10.1.0 | Rich text rendering |
+   127→| **Theme** | next-themes | ^0.4.6 | Light/dark mode |
+   128→
+   129→---
+   130→
+   131→## Project Structure
+   132→
+   133→```
+   134→my-project/
+   135→├── prisma/
+   136→│   ├── schema.prisma          # Database schema (25 models)
+   137→│   ├── seed.ts                # Seed data script
+   138→│   └── migrations/            # Prisma migration files
+   139→├── db/
+   140→│   └── dev.db                 # SQLite database file (dev only)
+   141→├── src/
+   142→│   ├── app/
+   143→│   │   ├── layout.tsx         # Root layout (fonts, providers, metadata)
+   144→│   │   ├── page.tsx           # Single-page entry → renders <AppShell />
+   145→│   │   ├── globals.css        # Tailwind CSS 4 base styles
+   146→│   │   └── api/               # RESTful API routes
+   147→│   │       ├── route.ts       # Health check / root API
+   148→│   │       ├── auth/route.ts          # Login, register, email verification
+   149→│   │       ├── users/route.ts         # User CRUD, role management
+   150→│   │       ├── competitions/route.ts  # Competition CRUD with categories & criteria
+   151→│   │       ├── registrations/route.ts # Student registration, cancellation
+   152→│   │       ├── payments/route.ts      # Razorpay order, verify, webhook
+   153→│   │       ├── essays/route.ts        # Essay upload, validation
+   154→│   │       ├── evaluations/route.ts   # Evaluation save/submit, result calculation
+   155→│   │       ├── examiners/route.ts     # Examiner management
+   156→│   │       ├── announcements/route.ts # Announcement CRUD
+   157→│   │       ├── notifications/route.ts # User notifications
+   158→│   │       ├── dashboard/route.ts     # Dashboard statistics
+   159→│   │       ├── audit/route.ts         # Audit log retrieval
+   160→│   │       └── settings/route.ts      # System settings CRUD
+   161→│   ├── components/
+   162→│   │   ├── layout/
+   163→│   │   │   ├── app-shell.tsx      # Root SPA shell with auth/app router
+   164→│   │   │   ├── app-sidebar.tsx    # Role-based sidebar navigation
+   165→│   │   │   └── app-header.tsx     # Top bar (user menu, notifications, breadcrumbs)
+   166→│   │   ├── auth/
+   167→│   │   │   ├── login-view.tsx         # Login form
+   168→│   │   │   └── register-view.tsx      # Student/teacher registration
+   169→│   │   ├── admin/
+   170→│   │   │   ├── dashboard-view.tsx     # Admin dashboard with stats & charts
+   171→│   │   │   ├── students-view.tsx      # Student management
+   172→│   │   │   ├── teachers-view.tsx      # Teacher management
+   173→│   │   │   ├── examiners-view.tsx     # Examiner management
+   174→│   │   │   ├── competitions-view.tsx  # Competition CRUD & lifecycle
+   175→│   │   │   ├── registrations-view.tsx # Registration oversight
+   176→│   │   │   ├── finance-view.tsx       # Payment dashboard & revenue
+   177→│   │   │   ├── essays-view.tsx        # Essay listing & validation
+   178→│   │   │   ├── examination-view.tsx   # Examiner assignment management
+   179→│   │   │   ├── results-view.tsx       # Result calculation & publication
+   180→│   │   │   ├── announcements-view.tsx # Announcement management
+   181→│   │   │   ├── audit-view.tsx         # Audit log viewer
+   182→│   │   │   └── settings-view.tsx      # System configuration
+   183→│   │   ├── student/
+   184→│   │   │   ├── dashboard-view.tsx     # Student home with competitions & status
+   185→│   │   │   ├── profile-view.tsx       # Student profile editor
+   186→│   │   │   ├── competitions-view.tsx  # Browse & register for competitions
+   187→│   │   │   ├── essay-view.tsx         # Essay upload & status tracking
+   188→│   │   │   ├── payment-view.tsx       # Payment flow (Razorpay checkout)
+   189→│   │   │   ├── results-view.tsx       # View published results
+   190→│   │   │   └── notifications-view.tsx # Student notifications
+   191→│   │   ├── teacher/
+   192→│   │   │   ├── dashboard-view.tsx     # Teacher dashboard with student stats
+   193→│   │   │   ├── profile-view.tsx       # Teacher profile editor
+   194→│   │   │   ├── students-view.tsx      # Referred students list
+   195→│   │   │   ├── add-student-view.tsx   # Bulk student registration
+   196→│   │   │   └── notifications-view.tsx # Teacher notifications
+   197→│   │   ├── examiner/
+   198→│   │   │   ├── dashboard-view.tsx     # Examiner dashboard with pending essays
+   199→│   │   │   ├── workspace-view.tsx     # 3-column evaluation workspace
+   200→│   │   │   └── notifications-view.tsx # Examiner notifications
+   201→│   │   └── ui/                      # shadcn/ui primitives (~40 components)
+   202→│   │       ├── button.tsx, card.tsx, dialog.tsx, table.tsx,
+   203→│   │       ├── input.tsx, select.tsx, tabs.tsx, badge.tsx,
+   204→│   │       ├── sidebar.tsx, sheet.tsx, tooltip.tsx, ...
+   205→│   ├── hooks/
+   206→│   │   ├── use-mobile.ts       # Mobile viewport detection
+   207→│   │   └── use-toast.ts        # Toast notification hook
+   208→│   └── lib/
+   209→│       ├── db.ts               # Prisma client singleton (dev: query logging)
+   210→│       ├── store.ts            # Zustand stores (auth, nav, app)
+   211→│       ├── types.ts            # TypeScript type definitions
+   212→|       ├── constants.ts        # Application constants
+   213→│       └── utils.ts            # Utility functions (cn, etc.)
+   214→├── public/                     # Static assets
+   215→├── package.json                # Dependencies & scripts
+   216→├── Caddyfile                   # Reverse proxy / gateway config
+   217→├── .env                        # Environment variables (local)
+   218→└── docs/                       # Documentation
+   219→    ├── ARCHITECTURE.md
+   220→    ├── DATABASE.md
+   221→    ├── SECURITY.md
+   222→    ├── PAYMENTS.md
+   223→    ├── DEPLOYMENT.md
+   224→    └── EXAMINATION.md
+   225→```
+   226→
+   227→---
+   228→
+   229→## Client-Side Architecture
+   230→
+   231→### SPA Routing via Zustand Nav Store
+   232→
+   233→The application uses a **single-page architecture** with no file-system routing. Instead of Next.js pages, the entire app lives at `/` and uses a Zustand store (`useNavStore`) to manage view switching:
+   234→
+   235→```
+   236→User clicks sidebar item
+   237→    ↓
+   238→navigate('admin-dashboard')  →  useNavStore.currentView = 'admin-dashboard'
+   239→    ↓
+   240→AppShell re-renders → AppRouter switch statement
+   241→    ↓
+   242→Renders <AdminDashboardView /> with Framer Motion transition
+   243→```
+   244→
+   245→The `NavView` type union defines all possible views (~35 views):
+   246→
+   247→| Prefix | Views | Role |
+   248→|--------|-------|------|
+   249→| `login`, `register`, `forgot-password` | 3 | Unauthenticated |
+   250→| `admin-*` | 14 | SUPER_ADMIN, ADMIN |
+   251→| `student-*` | 7 | STUDENT |
+   252→| `teacher-*` | 5 | TEACHER |
+   253→| `examiner-*` | 3 | EXAMINER |
+   254→
+   255→### Role-Based View Switching
+   256→
+   257→On authentication, the `AppShell` component auto-navigates to the correct dashboard based on the user's primary role:
+   258→
+   259→```typescript
+   260→useEffect(() => {
+   261→  if (isAuthenticated && user) {
+   262→    const role = user.roles[0];
+   263→    switch (role) {
+   264→      case 'SUPER_ADMIN': case 'ADMIN': navigate('admin-dashboard'); break;
+   265→      case 'STUDENT':      navigate('student-dashboard'); break;
+   266→      case 'TEACHER':      navigate('teacher-dashboard'); break;
+   267→      case 'EXAMINER':    navigate('examiner-dashboard'); break;
+   268→    }
+   269→  }
+   270→}, [isAuthenticated, user]);
+   271→```
+   272→
+   273→### Component Hierarchy
+   274→
+   275→```
+   276→<page.tsx>
+   277→  └── <AppShell>
+   278→        ├── [Unauthenticated] <AuthRouter>
+   279→        │     ├── <LoginView />
+   280→        │     └── <RegisterView />
+   281→        │
+   282→        └── [Authenticated] <motion.div>
+   283→              ├── <SidebarProvider>
+   284→              │     ├── <AppSidebar />        ← Role-based nav items
+   285→              │     └── <SidebarInset>
+   286→              │           ├── <AppHeader />   ← Breadcrumbs, notifications, user menu
+   287→              │           └── <AppRouter /> ← View switch via NavStore
+   288→              │                 ├── Admin Views (14)
+   289→              │                 ├── Student Views (7)
+   290→              │                 ├── Teacher Views (5)
+   291→              │                 └── Examiner Views (3)
+   292→              └──</SidebarProvider>
+   293→```
+   294→
+   295→---
+   296→
+   297→## Server-Side Architecture
+   298→
+   299→### API Route Pattern
+   300→
+   301→All API routes follow a consistent pattern:
+   302→
+   303→```
+   304→POST /api/{resource}?action={verb}   → Action-based routing via query params
+   305→GET  /api/{resource}?filter=value    → Query with optional filters + pagination
+   306→PUT  /api/{resource}?action={verb}   → Update operations
+   307→```
+   308→
+   309→**Action-based routing** is used instead of dynamic route segments (`[id]`). Each route file exports GET, POST, and optionally PUT handlers that internally dispatch to action handlers via `searchParams.get('action')`.
+   310→
+   311→```typescript
+   312→// Typical route structure
+   313→export async function POST(request: NextRequest) {
+   314→  const action = new URL(request.url).searchParams.get('action');
+   315→  switch (action) {
+   316→    case 'create-order': return handleCreateOrder(request);
+   317→    case 'verify':       return handleVerifyPayment(request);
+   318→    case 'webhook':      return handleWebhook(request);
+   319→    default:             return error(400, 'Invalid action');
+   320→  }
+   321→}
+   322→```
+   323→
+   324→### API Route Registry
+   325→
+   326→| Route | GET | POST (actions) | PUT (actions) |
+   327→|-------|-----|-----------------|---------------|
+   328→| `/api/auth` | — | `login`, `register`, `verify-email` | — |
+   329→| `/api/users` | List users | `create`, `update-role`, `toggle-active` | — |
+   330→| `/api/competitions` | List (filter by status) | `create`, `update`, `update-status` | — |
+   331→| `/api/registrations` | List (filter) | `create` | `cancel` |
+   332→| `/api/payments` | List (filter) | `create-order`, `verify`, `webhook` | — |
+   333→| `/api/essays` | List (filter) | Upload (multipart/JSON) | `validate` |
+   334→| `/api/evaluations` | List (filter) | Save/submit evaluation | `calculate-result` |
+   335→| `/api/examiners` | List | `create`, `assign`, `reassign` | — |
+   336→| `/api/announcements` | List | `create`, `update`, `publish` | — |
+   337→| `/api/notifications` | List (by user) | `mark-read`, `mark-all-read` | — |
+   338→| `/api/dashboard` | Stats | — | — |
+   339→| `/api/audit` | List (filter) | — | — |
+   340→| `/api/settings` | List (by category) | `upsert` | — |
+   341→
+   342→### Middleware Layers
+   343→
+   344→Each API route applies the following checks in order:
+   345→
+   346→1. **Input parsing** — Extract `searchParams` and `request.json()` / `request.formData()`
+   347→2. **Required field validation** — Check for missing required fields
+   348→3. **Business rule validation** — Check status constraints, duplicates, eligibility
+   349→4. **Database operations** — Prisma queries within `$transaction` where needed
+   350→5. **Audit logging** — Create `AuditLog` entry after successful mutation
+   351→6. **Notifications** — Create in-app `Notification` for relevant users
+   352→7. **Response** — Return `{ success, data, message }` JSON
+   353→
+   354→### Service Abstraction
+   355→
+   356→Currently, business logic lives directly in route handlers. The pattern uses internal handler functions (`handleCreateOrder`, `handleVerifyPayment`, etc.) within each route file. There is no separate service layer, but the handler pattern provides clean separation within each file.
+   357→
+   358→---
+   359→
+   360→## State Management
+   361→
+   362→### Zustand Stores
+   363→
+   364→Three Zustand stores manage all client-side state:
+   365→
+   366→#### 1. Auth Store (`useAuthStore`)
+   367→
+   368→- **Persistence:** `localStorage` via `persist` middleware (key: `essay-auth`)
+   369→- **State:** `user: UserSession | null`, `isAuthenticated`, `isLoading`
+   370→- **Actions:** `login()`, `logout()`, `updateUser()`, `setLoading()`, `hasRole()`, `hasAnyRole()`
+   371→- **Purpose:** Manages user session, role checking, and authentication state
+   372→
+   373→#### 2. Nav Store (`useNavStore`)
+   374→
+   375→- **Persistence:** None (resets on page reload)
+   376→- **State:** `currentView: NavView`, `sidebarOpen`, `breadcrumbs`
+   377→- **Actions:** `navigate()`, `setSidebarOpen()`, `toggleSidebar()`, `setBreadcrumbs()`, `pushBreadcrumb()`
+   378→- **Purpose:** SPA routing, sidebar toggle, breadcrumb trail
+   379→
+   380→#### 3. App Store (`useAppStore`)
+   381→
+   382→- **Persistence:** None
+   383→- **State:** `notifications[]`, `unreadCount`
+   384→- **Actions:** `setNotifications()`, `markAsRead()`, `markAllAsRead()`
+   385→- **Purpose:** In-memory notification cache for the notification bell
+   386→
+   387→### Server State (TanStack Query)
+   388→
+   389→TanStack Query (`@tanstack/react-query`) is available for server state caching and synchronization. Individual view components use it for data fetching with automatic refetch, stale-while-revalidate, and optimistic updates.
+   390→
+   391→---
+   392→
+   393→## Authentication Flow
+   394→
+   395→### Login
+   396→
+   397→```
+   398→Student/Teacher/Admin
+   399→    │
+   400→    ▼
+   401→POST /api/auth?action=login
+   402→    │  { email, password }
+   403→    │
+   404→    ├─ User not found → 401 "Invalid email or password"
+   405→    ├─ User inactive  → 403 "Account is deactivated"
+   406→    ├─ Password invalid → 401
+   407→    │
+   408→    ▼
+   409→User found, password valid
+   410→    │  • Fetch roles, profiles
+   411→    │  • Create audit log (USER_LOGIN)
+   412→    │  • Return session data
+   413→    │
+   414→    ▼
+   415→Client: useAuthStore.login(sessionData)
+   416→    │  • Persist to localStorage
+   417→    │  • Auto-navigate to role dashboard
+   418→```
+   419→
+   420→### Registration
+   421→
+   422→```
+   423→POST /api/auth?action=register
+   424→    │  { email, password, name, role, ...profileFields }
+   425→    │
+   426→    ├─ Validate required fields
+   427→    ├─ Check email uniqueness → 409 if exists
+   428→    ├─ Password min 6 chars → 400
+   429→    ├─ Create User + UserRole + Profile (in transaction)
+   430→    ├─ Create audit log (USER_REGISTER)
+   431→    │
+   432→    ▼
+   433→Return { id, email, name, role }
+   434→```
+   435→
+   436→### Email Verification
+   437→
+   438→```
+   439→POST /api/auth?action=verify-email
+   440→    │  { token }
+   441→    │
+   442→    ├─ Find EmailVerificationToken
+   443→    ├─ Check not used, not expired
+   444→    ├─ Mark user.emailVerified = true
+   445→    ├─ Mark token.usedAt = now (transaction)
+   446→    ├─ Create audit log (EMAIL_VERIFIED)
+   447→    │
+   448→    ▼
+   449→Return success
+   450→```
+   451→
+   452→### Session Management
+   453→
+   454→The system uses a **client-side session** pattern:
+   455→
+   456→1. Login returns full `UserSession` object (id, email, name, roles, profiles)
+   457→2. Client stores session in `localStorage` via Zustand `persist`
+   458→3. Each API request does **not** include session token (currently trust-based)
+   459→4. On page load, Zustand hydrates from `localStorage`
+   460→5. Logout clears the store and navigates to login
+   461→
+   462→> **Note:** This is a development-mode architecture. Production should add JWT tokens, HTTP-only cookies, or NextAuth.js session management.
+   463→
+   464→---
+   465→
+   466→## Role-Based Access Control
+   467→
+   468→### Five Roles
+   469→
+   470→| Role | Description | Dashboard | Access Level |
+   471→|------|-------------|-----------|-------------|
+   472→| `SUPER_ADMIN` | Full system access | admin-dashboard | All permissions + ADMIN_MANAGE |
+   473→| `ADMIN` | Operational admin | admin-dashboard | Subset of permissions (configured) |
+   474→| `TEACHER` | School teacher, refers students | teacher-dashboard | Own students, profile, notifications |
+   475→| `STUDENT` | Competition participant | student-dashboard | Own profile, competitions, essays, results |
+   476→| `EXAMINER` | Essay evaluator | examiner-dashboard | Assigned essays, workspace, notifications |
+   477→
+   478→### Permission System (ADMIN only)
+   479→
+   480→ADMIN users have a granular permission system via the `AdminPermission` model:
+   481→
+   482→| Permission | Grants Access To |
+   483→|-----------|-----------------|
+   484→| `STUDENT_VIEW` | View student list and profiles |
+   485→| `STUDENT_EDIT` | Create, edit, deactivate students |
+   486→| `TEACHER_VIEW` | View teacher list and profiles |
+   487→| `TEACHER_EDIT` | Create, edit teachers |
+   488→| `EXAMINER_MANAGE` | Create, activate, deactivate, assign examiners |
+   489→| `COMPETITION_MANAGE` | Create, edit, publish competitions |
+   490→| `PAYMENT_VIEW` | View payment transactions |
+   491→| `PAYMENT_MANAGE` | Process refunds, financial operations |
+   492→| `EXAM_ASSIGN` | Assign examiners to essays |
+   493→| `RESULT_VIEW` | View results and scores |
+   494→| `RESULT_MANAGE` | Calculate, publish, override results |
+   495→| `NOTIFICATION_MANAGE` | Create and publish announcements |
+   496→| `AUDIT_VIEW` | View audit logs |
+   497→| `SETTINGS_MANAGE` | Modify system settings |
+   498→| `ADMIN_MANAGE` | Create, edit admin users (SUPER_ADMIN only) |
+   499→
+   500→### Enforcement
+   501→
+   502→- **Frontend:** Sidebar items are conditionally rendered based on `useAuthStore.hasRole()` and permission checks
+   503→- **Backend:** API routes should validate roles before processing (currently partially implemented)
+   504→
+   505→---
+   506→
+   507→## Data Flow Diagrams
+   508→
+   509→### Registration Flow
+   510→
+   511→```
+   512→Student          Client          API Server         Database
+   513→  │                │                 │                  │
+   514→  │ Browse comps   │                 │                  │
+   515→  │───────────────>│                 │                  │
+   516→  │                │ GET /api/competitions?status=REGISTRATION_OPEN
+   517→  │                │────────────────>│                  │
+   518→  │                │                 │─────────────────>│
+   519→  │                │   Competition list                   │
+   520→  │                │<────────────────│<─────────────────│
+   521→  │ Click Register │                 │                  │
+   522→  │───────────────>│                 │                  │
+   523→  │                │ POST /api/registrations              │
+   524→  │                │ {studentId, competitionId}            │
+   525→  │                │────────────────>│                  │
+   526→  │                │                 │ • Check eligibility│
+   527→  │                │                 │ • Check duplicate │
+   528→  │                │                 │ • Generate RegNo  │
+   529→  │                │                 │─────────────────>│
+   530→  │                │   Registration  │                  │
+   531→  │                │<────────────────│<─────────────────│
+   532→  │   Reg #EC-2025-00001              │                  │
+   533→  │<───────────────│                 │                  │
+   534→```
+   535→
+   536→### Payment Flow
+   537→
+   538→```
+   539→Student           Client           API Server        Razorpay        Database
+   540→  │                  │                  │                │               │
+   541→  │ Pay Now          │                  │                │               │
+   542→  │─────────────────>│                  │                │               │
+   543→  │                  │ POST /api/payments?action=create-order
+   544→  │                  │─────────────────>│                │               │
+   545→  │                  │                  │ • Check reg    │               │
+   546→  │                  │                  │ • Check dup    │               │
+   547→  │                  │                  │ • Create order │               │
+   548→  │                  │                  │───────────────────────────────>│
+   549→  │                  │  {orderId, amount}                │               │
+   550→  │                  │<─────────────────│                │               │
+   551→  │  Razorpay Checkout opened                    │               │
+   552→  │<─────────────────│                  │                │               │
+   553→  │  Enter payment details                     │               │
+   554→  │─────────────────────────────────────────────────────>│
+   555→  │  payment.captured webhook                  │               │
+   556→  │                  │                  │<───────────────│
+   557→  │                  │                  │ POST /api/payments?action=webhook
+   558→  │                  │                  │───────────────────────────────>│
+   559→  │                  │                  │ • Verify sig  │               │
+   560→  │                  │                  │ • Mark SUCCESS │               │
+   561→  │                  │                  │ • Update reg   │               │
+   562→  │                  │                  │                │               │
+   563→  │  Payment Confirmed!                     │               │
+   564→  │<─────────────────│<─────────────────│                │               │
+   565→```
+   566→
+   567→### Essay Submission Flow
+   568→
+   569→```
+   570→Student         Client          API Server        Cloudinary       Database
+   571→  │                │                 │                │               │
+   572→  │ Upload PDF     │                 │                │               │
+   573→  │───────────────>│                 │                │               │
+   574→  │                │ POST /api/essays (multipart/form-data)
+   575→  │                │────────────────>│                │               │
+   576→  │                │                 │ • Check reg    │               │
+   577→  │                │                 │ • Check status │               │
+   578→  │                │                 │ • Validate PDF │               │
+   579→  │                │                 │ • Check size   │               │
+   580→  │                │                 │ • Upload file  │               │
+   581→  │                │                 │───────────────>│               │
+   582→  │                │                 │  {url, id}     │               │
+   583→  │                │                 │<───────────────│               │
+   584→  │                │                 │ • Save metadata│               │
+   585→  │                │                 │───────────────────────────────>│
+   586→  │                │  Essay record    │               │               │
+   587→  │                │<────────────────│<───────────────────────────────│
+   588→  │  Submitted!    │                  │               │               │
+   589→  │<───────────────│                  │               │               │
+   590→```
+   591→
+   592→### Evaluation Flow
+   593→
+   594→```
+   595→Admin             API Server           Database
+   596→  │                    │                   │
+   597→  │ Assign examiners   │                   │
+   598→  │───────────────────>│                   │
+   599→  │                    │ Create ExaminerAssignment (N per essay)
+   600→  │                    │──────────────────>│
+   601→  │                    │                   │
+   602→  │                    │  Assignments created
+   603→  │                    │<──────────────────│
+   604→  │                    │                   │
+   605→Examiner              │                   │
+   606→  │ Open workspace     │                   │
+   607→  │───────────────────>│                   │
+   608→  │                    │ GET /api/evaluations?examinerId=...
+   609→  │                    │──────────────────>│
+   610→  │  Essay list + PDFs │                   │
+   611→  │<───────────────────│<──────────────────│
+   612→  │                    │                   │
+   613→  │ Score & submit     │                   │
+   614→  │───────────────────>│                   │
+   615→  │                    │ POST /api/evaluations
+   616→  │                    │ {scores[], justification, submit: true}
+   617→  │                    │──────────────────>│
+   618→  │                    │ • Validate scores │
+   619→  │                    │ • Upsert evaluation + scores
+   620→  │                    │ • Lock assignment  │
+   621→  │                    │<──────────────────│
+   622→  │  Submitted!        │                   │
+   623→  │<───────────────────│                   │
+   624→```
+   625→
+   626→### Result Calculation Flow
+   627→
+   628→```
+   629→Admin                  API Server              Database
+   630→  │                       │                       │
+   631→  │ Calculate Results     │                       │
+   632→  │──────────────────────>│                       │
+   633→  │                       │ For each essay:        │
+   634→  │                       │   GET all SUBMITTED    │
+   635→  │                       │   evaluations          │
+   636→  │                       │──────────────────────>│
+   637→  │                       │                       │
+   638→  │                       │  Evaluation scores    │
+   639→  │                       │<──────────────────────│
+   640→  │                       │                       │
+   641→  │                       │ Apply scoring config: │
+   642→  │                       │ • MEAN / MEDIAN /     │
+   643→  │                       │   TRIMMED_MEAN        │
+   644→  │                       │ • Outlier handling    │
+   645→  │                       │                       │
+   646→  │                       │ Upsert Result         │
+   647→  │                       │──────────────────────>│
+   648→  │                       │                       │
+   649→  │                       │ Calculate ranks       │
+   650→  │                       │ (category-wise)       │
+   651→  │                       │                       │
+   652→  │  Results ready        │                       │
+   653→  │<──────────────────────│<──────────────────────│
+   654→  │                       │                       │
+   655→  │ Publish Results       │                       │
+   656→  │──────────────────────>│                       │
+   657→  │                       │ Update status → PUBLISHED
+   658→  │                       │──────────────────────>│
+   659→  │                       │ Notify students       │
+   660→  │                       │                       │
+   661→```
+   662→
+   663→---
+   664→
+   665→## Caching Strategy
+   666→
+   667→### Client-Side Caching
+   668→
+   669→| Layer | Technology | What's Cached | TTL / Invalidation |
+   670→|-------|-----------|---------------|---------------------|
+   671→| **Auth session** | Zustand + `persist` | User session, roles | Manual logout / localStorage clear |
+   672→| **Navigation** | Zustand (no persist) | Current view, sidebar state | Page reload resets |
+   673→| **Notifications** | Zustand (no persist) | Notification list, unread count | Refetch on view mount |
+   674→| **Server data** | TanStack Query | API responses (competitions, users, etc.) | `staleTime`, `refetchOnMount`, `refetchOnWindowFocus` |
+   675→
+   676→### Server-Side Caching
+   677→
+   678→| Layer | Technology | What's Cached | TTL |
+   679→|-------|-----------|---------------|-----|
+   680→| **Database** | None (in-memory Prisma) | Connection pooling | Process lifetime |
+   681→| **API responses** | None | — | — |
+   682→| **Static assets** | Next.js built-in | CSS, JS, images | Immutable hashes |
+   683→
+   684→### Prisma Connection
+   685→
+   686→The Prisma client uses a global singleton pattern to prevent connection exhaustion in development:
+   687→
+   688→```typescript
+   689→const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
+   690→export const db = globalForPrisma.prisma ?? new PrismaClient({ log: ['query'] });
+   691→if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+   692→```
+   693→
+   694→> **Production Note:** Add Prisma connection pooling via `@prisma/adapter-pg` or Neon's serverless driver for serverless deployment.
+   695→
+   696→---
+   697→
+   698→## Error Handling Architecture
+   699→
+   700→### API Response Contract
+   701→
+   702→All API responses follow a consistent envelope:
+   703→
+   704→```typescript
+   705→interface ApiResponse<T = unknown> {
+   706→  success: boolean;   // Operation result
+   707→  data?: T;           // Response payload
+   708→  error?: string;     // Error message (human-readable)
+   709→  message?: string;   // Success message
+   710→}
+   711→```
+   712→
+   713→Paginated responses extend this:
+   714→
+   715→```typescript
+   716→interface PaginatedResponse<T> extends ApiResponse<T[]> {
+   717→  total: number;      // Total matching records
+   718→  page: number;       // Current page (1-based)
+   719→  pageSize: number;   // Items per page
+   720→  totalPages: number; // Total pages
+   721→}
+   722→```
+   723→
+   724→### Error Handling Pattern
+   725→
+   726→Every API route wraps its handler in a try-catch:
+   727→
+   728→```typescript
+   729→export async function POST(request: NextRequest) {
+   730→  try {
+   731→    // ... business logic
+   732→  } catch (error: unknown) {
+   733→    const message = error instanceof Error ? error.message : 'Internal server error';
+   734→    return Response.json({ success: false, error: message }, { status: 500 });
+   735→  }
+   736→}
+   737→```
+   738→
+   739→### HTTP Status Codes
+   740→
+   741→| Code | Usage |
+   742→|------|-------|
+   743→| `200` | Successful GET / PUT |
+   744→| `201` | Successful POST (created) |
+   745→| `400` | Bad request (missing fields, invalid state, business rule violation) |
+   746→| `401` | Unauthorized (invalid credentials) |
+   747→| `403` | Forbidden (account deactivated, insufficient permissions) |
+   748→| `404` | Not found (entity doesn't exist) |
+   749→| `409` | Conflict (duplicate email, duplicate registration) |
+   750→| `500` | Internal server error (uncaught exception) |
+   751→
+   752→### Client Error Display
+   753→
+   754→- **Toast notifications** via `sonner` for action feedback (success, error, warning)
+   755→- **Form validation errors** displayed inline via React Hook Form + Zod
+   756→- **API errors** caught in view components and displayed as toast messages
+   757→
+   758→---
+   759→
+   760→## Background Jobs Architecture
+   761→
+   762→### Current State
+   763→
+   764→The system does **not** currently use a background job queue. All operations are synchronous within API request handlers. This includes:
+   765→
+   766→- Email sending (planned — currently in-app notifications only)
+   767→- File upload to Cloudinary (currently mocked)
+   768→- Result calculation (triggered manually by admin)
+   769→- Notification dispatch (created synchronously in DB)
+   770→
+   771→### Planned Background Jobs
+   772→
+   773→For production, the following should be migrated to a job queue:
+   774→
+   775→| Job | Trigger | Implementation Option |
+   776→|-----|---------|----------------------|
+   777→| Welcome email | User registration | Resend API + Vercel Cron / BullMQ |
+   778→| Payment confirmation email | Payment success | Webhook → email queue |
+   779→| Essay validation | Essay upload | File processing queue |
+   780→| Result notification | Result publication | Batch notification job |
+   781→| Registration reminder | Scheduled | Vercel Cron Job |
+   782→| Deadline notifications | Scheduled | Vercel Cron Job |
+   783→| Bulk result calculation | Admin action | Queue + progress tracking |
+   784→
+   785→### Recommended Architecture
+   786→
+   787→```
+   788→API Route
+   789→    │
+   790→    ├─ Fast path: Create DB record, return immediately
+   791→    │
+   792→    └─ Async path: Push to job queue
+   793→          │
+   794→          ▼
+   795→    ┌─────────────┐
+   796→    │ Job Queue    │  (BullMQ / Inngest / Trigger.dev)
+   797→    │ (Redis/DB)   │
+   798→    └──────┬──────┘
+   799→           │
+   800→           ▼
+   801→    ┌─────────────┐
+   802→    │  Worker      │  Process jobs: email, file ops, calculations
+   803→    └─────────────┘
+   804→```
+   805→
+   806→For Vercel serverless deployment, **Inngest** or **Trigger.dev** are recommended as they integrate natively without requiring a persistent Redis instance.
+   807→
