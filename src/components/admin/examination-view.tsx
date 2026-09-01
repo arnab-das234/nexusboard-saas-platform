@@ -1,61 +1,60 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  PenTool, FileCheck, Clock, CheckCircle, Users, ChevronLeft, ChevronRight,
-} from 'lucide-react';
+import { FileCheck, Clock, CheckCircle, Users, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { EVALUATION_STATUS_LABELS } from '@/lib/constants';
-import type { EvaluationStatus } from '@/lib/types';
+import type { PaginatedResponse } from '@/lib/types';
+import { useAuthStore } from '@/lib/store';
 import { toast } from 'sonner';
 
-// ── Types ────────────────────────────────────────────────────────────────────
-interface Assignment {
-  id: string; essayId: string; essayStudent: string; competitionName: string;
-  examinerName: string; status: EvaluationStatus; assignedDate: string; deadline: string;
+interface EssayItem {
+  id: string;
+  status: string;
+  fileName: string | null;
+  student: { user: { name: string | null; email: string } };
+  competition: { id: string; name: string };
+  registration: { registrationNo: string };
+  assignments: AssignmentItem[];
 }
 
-interface CompProgress {
-  competitionName: string; total: number; assigned: number; inProgress: number; completed: number;
+interface AssignmentItem {
+  id: string;
+  examinerId: string;
+  status: string;
+  assignedAt: string;
+  deadline: string | null;
+  examiner: { id: string; user: { name: string | null; email: string } };
+  evaluation: { status: string; totalMarks: number | null } | null;
+}
+
+interface ExaminerItem {
+  id: string;
+  isActive: boolean;
+  user: { id: string; name: string | null; email: string };
+  _count: { assignments: number; evaluations: number };
+}
+
+interface EvalItem {
+  id: string;
+  essayId: string;
+  status: string;
+  totalMarks: number | null;
+  essay: { student: { user: { name: string | null } }; competition: { name: string } };
+  examiner: { user: { name: string | null } };
 }
 
 const PAGE_SIZE = 10;
 
-const MOCK_OVERVIEW = { totalEssays: 621, assigned: 540, inProgress: 93, completed: 447 };
-
-const MOCK_PROGRESS: CompProgress[] = [
-  { competitionName: 'National Essay 2025', total: 312, assigned: 280, inProgress: 48, completed: 232 },
-  { competitionName: 'State Level Essay', total: 156, assigned: 140, inProgress: 25, completed: 115 },
-  { competitionName: 'Inter-School Essay', total: 153, assigned: 120, inProgress: 20, completed: 100 },
-];
-
-const MOCK_ASSIGNMENTS: Assignment[] = Array.from({ length: 42 }, (_, i) => ({
-  id: `ASG-${String(i + 1).padStart(4, '0')}`,
-  essayId: `ESS-${String(i + 1).padStart(4, '0')}`,
-  essayStudent: ['Aarav Sharma', 'Priya Nair', 'Rohit Patel', 'Ananya Gupta', 'Karthik Iyer'][i % 5],
-  competitionName: ['National Essay 2025', 'State Level Essay', 'Inter-School Essay'][i % 3],
-  examinerName: ['Prof. Anil Kapoor', 'Dr. Sunita Rao', 'Mr. Deepak Menon', 'Ms. Kavitha Sharma', 'Dr. Rajesh Nair'][i % 5],
-  status: (['ASSIGNED', 'IN_PROGRESS', 'SUBMITTED', 'LOCKED'] as EvaluationStatus[])[i % 4],
-  assignedDate: `2025-07-${String((i % 28) + 1).padStart(2, '0')}`,
-  deadline: `2025-08-${String(Math.min((i % 28) + 14, 31)).padStart(2, '0')}`,
-}));
-
-const MOCK_EXAMINERS = ['Prof. Anil Kapoor', 'Dr. Sunita Rao', 'Mr. Deepak Menon', 'Ms. Kavitha Sharma', 'Dr. Rajesh Nair'];
-
-function evalStatusColor(s: EvaluationStatus) {
+function evalStatusColor(s: string) {
   const m: Record<string, string> = {
     ASSIGNED: 'bg-amber-100 text-amber-700', IN_PROGRESS: 'bg-emerald-100 text-emerald-700',
     SUBMITTED: 'bg-teal-100 text-teal-700', LOCKED: 'bg-slate-100 text-slate-700',
@@ -63,227 +62,256 @@ function evalStatusColor(s: EvaluationStatus) {
   return m[s] ?? 'bg-slate-100 text-slate-700';
 }
 
-function TableSkeleton() {
+function LoadingSkeleton() {
   return (
     <div className="space-y-6 p-6">
-      <div className="grid grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => (<Card key={i}><CardContent className="p-4"><Skeleton className="h-14 rounded" /></CardContent></Card>))}</div>
-      <Skeleton className="h-[300px] w-full rounded-lg" />
+      <div className="grid grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Card key={i}><CardContent className="p-4"><Skeleton className="h-14 rounded" /></CardContent></Card>)}</div>
       <Skeleton className="h-[400px] w-full rounded-lg" />
     </div>
   );
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
-export function AdminExaminationView() {
-  const [overview, setOverview] = useState(MOCK_OVERVIEW);
-  const [progress, setProgress] = useState<CompProgress[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [compFilter, setCompFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [page, setPage] = useState(1);
-  const [batchOpen, setBatchOpen] = useState(false);
-  const [selectedEssays, setSelectedEssays] = useState<string[]>([]);
-  const [batchExaminer, setBatchExaminer] = useState('');
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center p-6">
+      <AlertCircle className="h-12 w-12 text-rose-400 mb-3" />
+      <p className="text-slate-600 font-medium">Failed to load examination data</p>
+      <p className="text-sm text-slate-400 mt-1 mb-4">{message}</p>
+      <Button variant="outline" onClick={onRetry}><RefreshCw className="h-4 w-4 mr-1.5" /> Retry</Button>
+    </div>
+  );
+}
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+export function AdminExaminationView() {
+  const user = useAuthStore(s => s.user);
+  const [essays, setEssays] = useState<EssayItem[]>([]);
+  const [examiners, setExaminers] = useState<ExaminerItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [compFilter, setCompFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Assign dialog
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<EssayItem | null>(null);
+  const [selectedExaminers, setSelectedExaminers] = useState<string[]>([]);
+  const [assignDeadline, setAssignDeadline] = useState('');
+  const [assigning, setAssigning] = useState(false);
+
+  const fetchEssays = useCallback(async () => {
+    setLoading(true); setError('');
     try {
-      const res = await fetch('/api/seed?action=admin-examination');
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE), status: 'VALID' });
+      if (compFilter !== 'ALL') params.set('competitionId', compFilter);
+      const res = await fetch(`/api/essays?${params}`);
+      const json: PaginatedResponse<EssayItem> = await res.json();
+      if (!json.success) { setError(json.error || 'Unknown error'); return; }
+      setEssays(json.data || []);
+      setTotal(json.total || 0);
+      setTotalPages(json.totalPages || 1);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Network error'); }
+    finally { setLoading(false); }
+  }, [page, compFilter]);
+
+  const fetchExaminers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/examiners?isActive=true&pageSize=100');
       const json = await res.json();
-      if (json.success && json.data) {
-        setOverview(json.data.overview ?? MOCK_OVERVIEW);
-        setProgress(json.data.progress ?? MOCK_PROGRESS);
-        setAssignments(json.data.assignments ?? MOCK_ASSIGNMENTS);
-        return;
-      }
-    } catch {} finally { setLoading(false); }
-    setProgress(MOCK_PROGRESS); setAssignments(MOCK_ASSIGNMENTS);
+      if (json.success) setExaminers(json.data || []);
+    } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchExaminers(); }, [fetchExaminers]);
+  useEffect(() => { setPage(1); }, [compFilter]);
+  useEffect(() => { fetchEssays(); }, [fetchEssays]);
 
-  const filtered = assignments.filter((a) => {
-    if (compFilter !== 'ALL' && a.competitionName !== compFilter) return false;
-    if (statusFilter !== 'ALL' && a.status !== statusFilter) return false;
-    return true;
-  });
+  // Computed overview
+  const totalEssays = essays.length;
+  const assignedCount = essays.filter(e => e.assignments.length > 0).length;
+  const inProgressCount = essays.filter(e => e.assignments.some(a => a.status === 'IN_PROGRESS')).length;
+  const completedCount = essays.filter(e => e.assignments.length > 0 && e.assignments.every(a => a.status === 'SUBMITTED')).length;
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageData = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  useEffect(() => { setPage(1); }, [compFilter, statusFilter]);
-
-  const toggleEssay = (id: string) => {
-    setSelectedEssays((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const openAssignDialog = (essay: EssayItem) => {
+    setAssignTarget(essay);
+    setSelectedExaminers([]);
+    setAssignDeadline('');
+    setAssignOpen(true);
   };
 
-  const handleBatchAssign = () => {
-    if (selectedEssays.length === 0) { toast.error('Select at least one essay'); return; }
-    if (!batchExaminer) { toast.error('Select an examiner'); return; }
-    toast.success(`${selectedEssays.length} essays assigned to ${batchExaminer}`);
-    setBatchOpen(false); setSelectedEssays([]); setBatchExaminer('');
+  const handleAssign = async () => {
+    if (!assignTarget || selectedExaminers.length === 0) { toast.error('Select at least one examiner'); return; }
+    setAssigning(true);
+    try {
+      const res = await fetch('/api/examiners?action=assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          essayIds: [assignTarget.id],
+          examinerIds: selectedExaminers,
+          assignedBy: user?.id,
+          deadline: assignDeadline || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) { toast.error(json.error || 'Failed to assign'); return; }
+      toast.success(`Assigned ${selectedExaminers.length} examiner(s) to essay`);
+      setAssignOpen(false);
+      fetchEssays();
+    } catch { toast.error('Network error'); }
+    finally { setAssigning(false); }
   };
 
-  if (loading) return <TableSkeleton />;
+  const toggleExaminer = (id: string) => {
+    setSelectedExaminers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  if (error && !loading) return <ErrorState message={error} onRetry={fetchEssays} />;
+  if (loading) return <LoadingSkeleton />;
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Examination</h1>
-          <p className="text-sm text-slate-500">Manage essay evaluations and examiner assignments</p>
+          <p className="text-sm text-slate-500">Assign examiners and track evaluation progress</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setBatchOpen(true)}>
-          <Users className="h-4 w-4 mr-1.5" /> Batch Assign
-        </Button>
       </div>
 
-      {/* Overview Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card><CardContent className="p-4 flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-emerald-500 flex items-center justify-center"><FileCheck className="h-5 w-5 text-white" /></div>
-          <div><p className="text-xs text-slate-500">Total Essays</p><p className="text-xl font-bold text-slate-800">{overview.totalEssays}</p></div>
+          <div><p className="text-xs text-slate-500">Validated Essays</p><p className="text-xl font-bold text-slate-800">{total}</p></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-teal-500 flex items-center justify-center"><CheckCircle className="h-5 w-5 text-white" /></div>
-          <div><p className="text-xs text-slate-500">Assigned</p><p className="text-xl font-bold text-teal-700">{overview.assigned}</p></div>
+          <div><p className="text-xs text-slate-500">Assigned</p><p className="text-xl font-bold text-teal-700">{assignedCount}</p></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-amber-500 flex items-center justify-center"><Clock className="h-5 w-5 text-white" /></div>
-          <div><p className="text-xs text-slate-500">In Progress</p><p className="text-xl font-bold text-amber-700">{overview.inProgress}</p></div>
+          <div><p className="text-xs text-slate-500">In Progress</p><p className="text-xl font-bold text-amber-700">{inProgressCount}</p></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-emerald-600 flex items-center justify-center"><PenTool className="h-5 w-5 text-white" /></div>
-          <div><p className="text-xs text-slate-500">Completed</p><p className="text-xl font-bold text-emerald-800">{overview.completed}</p></div>
+          <div className="h-10 w-10 rounded-lg bg-emerald-600 flex items-center justify-center"><Users className="h-5 w-5 text-white" /></div>
+          <div><p className="text-xs text-slate-500">Completed</p><p className="text-xl font-bold text-emerald-800">{completedCount}</p></div>
         </CardContent></Card>
       </div>
 
-      {/* Progress per Competition */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base font-semibold text-slate-800">Progress by Competition</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {progress.map((c) => {
-            const pct = c.total > 0 ? Math.round((c.completed / c.total) * 100) : 0;
-            return (
-              <div key={c.competitionName} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-700">{c.competitionName}</span>
-                  <span className="text-slate-500">{c.completed}/{c.total} ({pct}%)</span>
-                </div>
-                <div className="flex gap-1.5 h-3 rounded-full overflow-hidden bg-slate-100">
-                  <div className="bg-emerald-500 rounded-l-full transition-all" style={{ width: `${(c.completed / c.total) * 100}%` }} />
-                  <div className="bg-amber-400 transition-all" style={{ width: `${(c.inProgress / c.total) * 100}%` }} />
-                  <div className="bg-slate-200 rounded-r-full transition-all" style={{ width: `${((c.total - c.assigned) / c.total) * 100}%` }} />
-                </div>
-                <div className="flex gap-4 text-xs text-slate-500">
-                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Completed</span>
-                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" /> In Progress</span>
-                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-slate-200" /> Unassigned</span>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-slate-800">Essay Assignment</CardTitle>
+            <Select value={compFilter} onValueChange={setCompFilter}>
+              <SelectTrigger className="w-[220px]"><SelectValue placeholder="Competition" /></SelectTrigger>
+              <SelectContent><SelectItem value="ALL">All Competitions</SelectItem></SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {essays.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FileCheck className="h-10 w-10 text-slate-300 mb-2" />
+              <p className="text-slate-500 font-medium">No validated essays</p>
+              <p className="text-sm text-slate-400 mt-1">Essays that pass validation will appear here</p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg border max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader><TableRow className="bg-slate-50/80 sticky top-0">
+                    <TableHead>Student</TableHead><TableHead>Competition</TableHead><TableHead>Reg No</TableHead>
+                    <TableHead>Assigned Examiners</TableHead><TableHead>Progress</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {essays.map(e => {
+                      const done = e.assignments.filter(a => a.status === 'SUBMITTED').length;
+                      const totalA = e.assignments.length;
+                      return (
+                        <TableRow key={e.id}>
+                          <TableCell className="font-medium text-slate-800">{e.student.user.name || '—'}</TableCell>
+                          <TableCell className="text-slate-600">{e.competition.name}</TableCell>
+                          <TableCell className="font-mono text-xs text-slate-500">{e.registration.registrationNo}</TableCell>
+                          <TableCell>
+                            {totalA === 0 ? <span className="text-slate-400">None</span> : (
+                              <div className="flex flex-col gap-0.5">
+                                {e.assignments.map(a => (
+                                  <div key={a.id} className="flex items-center gap-1.5 text-xs">
+                                    <Badge variant="secondary" className={`${evalStatusColor(a.status)} text-[10px] px-1.5 py-0`}>
+                                      {a.examiner.user.name || 'Unknown'}
+                                    </Badge>
+                                    {a.evaluation?.totalMarks != null && <span className="text-slate-500">{a.evaluation.totalMarks}pts</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {totalA > 0 ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 h-2 rounded-full bg-slate-100 overflow-hidden">
+                                  <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${(done / totalA) * 100}%` }} />
+                                </div>
+                                <span className="text-xs text-slate-500">{done}/{totalA}</span>
+                              </div>
+                            ) : <span className="text-slate-400 text-xs">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" variant="outline" className="h-7" onClick={() => openAssignDialog(e)}>
+                              <UserPlus className="h-3.5 w-3.5 mr-1" /> Assign
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-sm text-slate-500">{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}</p>
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                  <span className="text-sm text-slate-600 px-2">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
                 </div>
               </div>
-            );
-          })}
+            </>
+          )}
         </CardContent>
       </Card>
 
-      {/* Assignment Table */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base font-semibold text-slate-800">Assignments</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3 mb-4">
-            <Select value={compFilter} onValueChange={setCompFilter}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Competition" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Competitions</SelectItem>
-                <SelectItem value="National Essay 2025">National Essay 2025</SelectItem>
-                <SelectItem value="State Level Essay">State Level Essay</SelectItem>
-                <SelectItem value="Inter-School Essay">Inter-School Essay</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Status</SelectItem>
-                {Object.entries(EVALUATION_STATUS_LABELS).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50/80">
-                  <TableHead>Essay</TableHead>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Examiner</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Assigned</TableHead>
-                  <TableHead>Deadline</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pageData.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className="font-mono text-xs font-medium text-slate-700">{a.essayId}</TableCell>
-                    <TableCell className="font-medium text-slate-800">{a.essayStudent}</TableCell>
-                    <TableCell className="text-slate-600">{a.examinerName}</TableCell>
-                    <TableCell><Badge variant="secondary" className={evalStatusColor(a.status)}>{EVALUATION_STATUS_LABELS[a.status]}</Badge></TableCell>
-                    <TableCell className="text-slate-500">{a.assignedDate}</TableCell>
-                    <TableCell className="text-slate-500">{a.deadline}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-slate-500">{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}</p>
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-              <span className="text-sm text-slate-600 px-2">Page {page} of {totalPages}</span>
-              <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage(page + 1)}><ChevronRight className="h-4 w-4" /></Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Batch Assign Dialog */}
-      <Dialog open={batchOpen} onOpenChange={setBatchOpen}>
+      {/* Assign Dialog */}
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Batch Assign Essays</DialogTitle>
-            <DialogDescription>Select essays and an examiner to assign</DialogDescription>
+            <DialogTitle>Assign Examiners</DialogTitle>
+            <DialogDescription>{assignTarget?.student.user.name} — {assignTarget?.registration.registrationNo}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-slate-700 mb-2">Select Essays ({selectedEssays.length} selected)</p>
+              <p className="text-sm font-medium text-slate-700 mb-2">Select Examiners ({selectedExaminers.length} selected)</p>
               <div className="max-h-[200px] overflow-y-auto rounded-lg border p-2 space-y-1">
-                {assignments.filter((a) => a.status === 'ASSIGNED' || a.status === 'IN_PROGRESS').slice(0, 20).map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 p-2 rounded hover:bg-slate-50 cursor-pointer text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedEssays.includes(a.essayId)}
-                      onChange={() => toggleEssay(a.essayId)}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-slate-700">{a.essayId}</span>
-                    <span className="text-slate-400">— {a.essayStudent}</span>
+                {examiners.length === 0 ? <p className="text-sm text-slate-400 p-2">No active examiners found</p> : examiners.map(ex => (
+                  <label key={ex.id} className="flex items-center gap-2 p-2 rounded hover:bg-slate-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={selectedExaminers.includes(ex.id)} onChange={() => toggleExaminer(ex.id)} className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                    <span className="text-slate-700">{ex.user.name || 'Unknown'}</span>
+                    <span className="text-slate-400 text-xs">{ex.user.email}</span>
+                    <Badge variant="outline" className="ml-auto text-[10px]">{ex._count.evaluations} done</Badge>
                   </label>
                 ))}
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-700 mb-1">Assign to Examiner</p>
-              <Select value={batchExaminer} onValueChange={setBatchExaminer}>
-                <SelectTrigger><SelectValue placeholder="Select examiner..." /></SelectTrigger>
-                <SelectContent>
-                  {MOCK_EXAMINERS.map((e) => (<SelectItem key={e} value={e}>{e}</SelectItem>))}
-                </SelectContent>
-              </Select>
+              <Label>Deadline (optional)</Label>
+              <Input type="datetime-local" className="mt-1" value={assignDeadline} onChange={e => setAssignDeadline(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setBatchOpen(false)}>Cancel</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleBatchAssign}>Assign</Button>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={assigning} onClick={handleAssign}>
+              {assigning ? 'Assigning...' : `Assign ${selectedExaminers.length} Examiner(s)`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

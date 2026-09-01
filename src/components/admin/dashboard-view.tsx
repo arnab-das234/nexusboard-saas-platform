@@ -19,12 +19,6 @@ import type { DashboardStats } from '@/lib/types';
 // ── Types ────────────────────────────────────────────────────────────────────
 interface TrendPoint { month: string; registrations: number; payments: number; }
 interface PaymentSlice { name: string; value: number; color: string; }
-interface RecentReg {
-  id: string; studentName: string; studentEmail: string;
-  competitionName: string; status: string; date: string;
-}
-
-const COLORS = ['#10b981', '#f59e0b', '#f43f5e', '#64748b'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(n: number) {
@@ -88,50 +82,50 @@ export function AdminDashboardView() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [paymentSlices, setPaymentSlices] = useState<PaymentSlice[]>([]);
-  const [recent, setRecent] = useState<RecentReg[]>([]);
+  const [recent, setRecent] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/seed?action=dashboard-stats');
-        const json = await res.json();
-        if (json.success) {
-          setStats(json.data?.stats ?? null);
-          setTrend(json.data?.trend ?? []);
-          setPaymentSlices(json.data?.paymentStatus ?? []);
-          setRecent(json.data?.recentRegistrations ?? []);
+        const [statsRes, trendRes, recentRes] = await Promise.all([
+          fetch('/api/dashboard?action=stats'),
+          fetch('/api/dashboard?action=registration-trend'),
+          fetch('/api/dashboard?action=recent-registrations'),
+        ]);
+        const [statsJson, trendJson, recentJson] = await Promise.all([
+          statsRes.json(),
+          trendRes.json(),
+          recentRes.json(),
+        ]);
+        if (statsJson.success) setStats(statsJson.data ?? null);
+        if (trendJson.success) setTrend(trendJson.data ?? []);
+        if (recentJson.success) {
+          setRecent(recentJson.data ?? []);
+        }
+        // Build payment slices from stats
+        if (statsJson.data) {
+          const d = statsJson.data;
+          const total = d.paidRegistrations + d.pendingPayments;
+          const failed = d.totalRegistrations - total;
+          setPaymentSlices([
+            { name: 'Success', value: d.paidRegistrations || 0, color: '#10b981' },
+            { name: 'Pending', value: d.pendingPayments || 0, color: '#f59e0b' },
+            { name: 'Failed', value: Math.max(failed, 0), color: '#f43f5e' },
+          ].filter((s) => s.value > 0));
         }
       } catch {
-        // fallback: use mock data
+        // fallback: empty state — do not show mock data
         setStats({
-          totalStudents: 1247, totalTeachers: 86, totalExaminers: 24,
-          activeCompetitions: 3, totalRegistrations: 892, paidRegistrations: 714,
-          pendingPayments: 58, totalRevenue: 71400, essaysSubmitted: 621,
-          essaysPendingEval: 93, completedEvaluations: 528, resultsPending: 2,
-          resultsPublished: 1,
+          totalStudents: 0, totalTeachers: 0, totalExaminers: 0,
+          activeCompetitions: 0, totalRegistrations: 0, paidRegistrations: 0,
+          pendingPayments: 0, totalRevenue: 0, essaysSubmitted: 0,
+          essaysPendingEval: 0, completedEvaluations: 0, resultsPending: 0,
+          resultsPublished: 0,
         });
-        setTrend([
-          { month: 'Jan', registrations: 65, payments: 58 },
-          { month: 'Feb', registrations: 89, payments: 76 },
-          { month: 'Mar', registrations: 142, payments: 128 },
-          { month: 'Apr', registrations: 198, payments: 175 },
-          { month: 'May', registrations: 156, payments: 141 },
-          { month: 'Jun', registrations: 242, payments: 218 },
-        ]);
-        setPaymentSlices([
-          { name: 'Success', value: 714, color: '#10b981' },
-          { name: 'Pending', value: 58, color: '#f59e0b' },
-          { name: 'Failed', value: 23, color: '#f43f5e' },
-          { name: 'Refunded', value: 12, color: '#64748b' },
-        ]);
-        setRecent([
-          { id: 'REG-892', studentName: 'Aarav Sharma', studentEmail: 'aarav@mail.com', competitionName: 'National Essay 2025', status: 'Paid', date: '2025-07-08' },
-          { id: 'REG-891', studentName: 'Priya Nair', studentEmail: 'priya@mail.com', competitionName: 'State Level Essay', status: 'Confirmed', date: '2025-07-08' },
-          { id: 'REG-890', studentName: 'Rohit Patel', studentEmail: 'rohit@mail.com', competitionName: 'National Essay 2025', status: 'Pending', date: '2025-07-07' },
-          { id: 'REG-889', studentName: 'Ananya Gupta', studentEmail: 'ananya@mail.com', competitionName: 'Inter-School Essay', status: 'Verified', date: '2025-07-07' },
-          { id: 'REG-888', studentName: 'Karthik Iyer', studentEmail: 'karthik@mail.com', competitionName: 'National Essay 2025', status: 'Paid', date: '2025-07-06' },
-        ]);
+        setTrend([]);
+        setPaymentSlices([]);
+        setRecent([]);
       } finally {
         setLoading(false);
       }
@@ -237,30 +231,34 @@ export function AdminDashboardView() {
           <CardTitle className="text-base font-semibold text-slate-800">Recent Registrations</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Competition</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recent.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium text-slate-800">{r.studentName}</TableCell>
-                  <TableCell className="text-slate-500">{r.studentEmail}</TableCell>
-                  <TableCell>{r.competitionName}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={statusColor(r.status)}>{r.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-slate-500">{r.date}</TableCell>
+          {recent.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-500">No registrations yet</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reg No</TableHead>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Competition</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Date</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {recent.slice(0, 10).map((r: Record<string, unknown>) => (
+                  <TableRow key={r.id as string}>
+                    <TableCell className="font-mono text-xs text-slate-600">{r.registrationNo as string}</TableCell>
+                    <TableCell className="font-medium text-slate-800">{r.studentName as string}</TableCell>
+                    <TableCell>{r.competitionName as string}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={statusColor(r.status as string)}>{r.status as string}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-slate-500">{r.registeredAt ? new Date(r.registeredAt as string).toLocaleDateString('en-IN') : '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

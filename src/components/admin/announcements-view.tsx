@@ -1,42 +1,46 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  Megaphone, Plus, Eye, Clock, Send, FileEdit, CalendarDays,
-} from 'lucide-react';
+import { Megaphone, Plus, Eye, Clock, Send, FileEdit, CalendarDays, AlertCircle, RefreshCw, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuthStore } from '@/lib/store';
 import { toast } from 'sonner';
-import type { NotificationAudience } from '@/lib/types';
+import type { NotificationAudience, PaginatedResponse } from '@/lib/types';
 
-// ── Types ────────────────────────────────────────────────────────────────────
-interface Announcement {
-  id: string; title: string; message: string;
-  audience: NotificationAudience; competitionName?: string;
-  status: 'DRAFT' | 'SCHEDULED' | 'SENT';
-  scheduledDate?: string; sentAt?: string; createdAt: string;
+interface AnnouncementItem {
+  id: string;
+  title: string;
+  message: string;
+  audience: string;
+  competitionId: string | null;
+  scheduledAt: string | null;
+  status: string;
+  createdAt: string;
+  competition: { id: string; name: string } | null;
+  _count: { userNotifications: number };
 }
 
-const AUDIENCE_LABELS: Record<NotificationAudience, string> = {
+interface CompOption { id: string; name: string; }
+
+const AUDIENCE_LABELS: Record<string, string> = {
   ALL: 'Everyone', ALL_STUDENTS: 'All Students', REGISTERED_STUDENTS: 'Registered Students',
   COMPETITION_STUDENTS: 'Competition Students', TEACHERS: 'Teachers',
-  EXAMINERS: 'Examiners', SPECIFIC_USERS: 'Specific Users',
+  EXAMINERS: 'Examiners', SPECIFIC_USERS: 'Specific Users', STUDENTS: 'Students',
 };
 
 function statusBadge(s: string) {
   const m: Record<string, string> = {
-    DRAFT: 'bg-slate-100 text-slate-700', SCHEDULED: 'bg-amber-100 text-amber-700', SENT: 'bg-emerald-100 text-emerald-700',
+    DRAFT: 'bg-slate-100 text-slate-700', SCHEDULED: 'bg-amber-100 text-amber-700',
+    PUBLISHED: 'bg-emerald-100 text-emerald-700', CANCELLED: 'bg-rose-100 text-rose-700',
   };
   return m[s] ?? 'bg-slate-100 text-slate-700';
 }
@@ -44,43 +48,11 @@ function statusBadge(s: string) {
 function statusIcon(s: string) {
   if (s === 'DRAFT') return <FileEdit className="h-4 w-4 text-slate-500" />;
   if (s === 'SCHEDULED') return <Clock className="h-4 w-4 text-amber-500" />;
-  return <Send className="h-4 w-4 text-emerald-500" />;
+  if (s === 'PUBLISHED') return <Send className="h-4 w-4 text-emerald-500" />;
+  return <XCircle className="h-4 w-4 text-rose-500" />;
 }
 
-const MOCK: Announcement[] = [
-  {
-    id: 'ANN-001', title: 'Registration Now Open',
-    message: 'We are pleased to announce that registrations for the National Essay Writing Competition 2025 are now open. All eligible students are encouraged to register before the deadline.',
-    audience: 'ALL_STUDENTS', competitionName: 'National Essay 2025', status: 'SENT',
-    sentAt: '2025-06-01 09:00', createdAt: '2025-05-30',
-  },
-  {
-    id: 'ANN-002', title: 'Submission Deadline Reminder',
-    message: 'This is a reminder that the essay submission deadline is approaching. Please submit your essays before the closing date.',
-    audience: 'COMPETITION_STUDENTS', competitionName: 'State Level Essay', status: 'SCHEDULED',
-    scheduledDate: '2025-07-25 08:00', createdAt: '2025-07-20',
-  },
-  {
-    id: 'ANN-003', title: 'Results for Inter-School Essay',
-    message: 'Results for the Inter-School Essay Challenge have been published. Congratulations to all winners!',
-    audience: 'COMPETITION_STUDENTS', competitionName: 'Inter-School Essay', status: 'DRAFT',
-    createdAt: '2025-07-28',
-  },
-  {
-    id: 'ANN-004', title: 'Examiner Evaluation Guidelines',
-    message: 'Updated evaluation guidelines have been posted. Please review the new rubric before starting your evaluations.',
-    audience: 'EXAMINERS', status: 'SENT',
-    sentAt: '2025-07-15 10:00', createdAt: '2025-07-14',
-  },
-  {
-    id: 'ANN-005', title: 'System Maintenance Notice',
-    message: 'The platform will undergo scheduled maintenance on August 1st from 2:00 AM to 4:00 AM IST.',
-    audience: 'ALL', status: 'DRAFT',
-    createdAt: '2025-07-29',
-  },
-];
-
-function ListSkeleton() {
+function LoadingSkeleton() {
   return (
     <div className="space-y-4 p-6">
       <Skeleton className="h-10 w-48" />
@@ -89,63 +61,110 @@ function ListSkeleton() {
   );
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center p-6">
+      <AlertCircle className="h-12 w-12 text-rose-400 mb-3" />
+      <p className="text-slate-600 font-medium">Failed to load announcements</p>
+      <p className="text-sm text-slate-400 mt-1 mb-4">{message}</p>
+      <Button variant="outline" onClick={onRetry}><RefreshCw className="h-4 w-4 mr-1.5" /> Retry</Button>
+    </div>
+  );
+}
+
 export function AdminAnnouncementsView() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const user = useAuthStore(s => s.user);
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [competitions, setCompetitions] = useState<CompOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewAnn, setPreviewAnn] = useState<Announcement | null>(null);
+  const [previewAnn, setPreviewAnn] = useState<AnnouncementItem | null>(null);
   const [form, setForm] = useState({
-    title: '', message: '', audience: 'ALL_STUDENTS' as NotificationAudience,
-    competition: '', scheduledDate: '',
+    title: '', message: '', audience: 'ALL' as string,
+    competition: '', scheduledDate: '', status: 'DRAFT' as string,
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchAnnouncements = useCallback(async () => {
+    setLoading(true); setError('');
     try {
-      const res = await fetch('/api/seed?action=admin-announcements');
-      const json = await res.json();
-      if (json.success && json.data) { setAnnouncements(json.data); return; }
-    } catch {} finally { setLoading(false); }
-    setAnnouncements(MOCK);
+      const params = new URLSearchParams({ pageSize: '100' });
+      const res = await fetch(`/api/announcements?${params}`);
+      const json: PaginatedResponse<AnnouncementItem> = await res.json();
+      if (!json.success) { setError(json.error || 'Unknown error'); return; }
+      setAnnouncements(json.data || []);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Network error'); }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchCompetitions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/competitions');
+      const json = await res.json();
+      if (json.success) setCompetitions((json.data || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchCompetitions(); }, [fetchCompetitions]);
+  useEffect(() => { fetchAnnouncements(); }, [fetchAnnouncements]);
 
   const openCreate = () => {
-    setForm({ title: '', message: '', audience: 'ALL_STUDENTS', competition: '', scheduledDate: '' });
+    setForm({ title: '', message: '', audience: 'ALL', competition: '', scheduledDate: '', status: 'DRAFT' });
     setFormOpen(true);
   };
 
-  const handleSave = () => {
+  const handleCreate = async () => {
     if (!form.title || !form.message) { toast.error('Title and message are required'); return; }
-    const newAnn: Announcement = {
-      id: `ANN-${String(announcements.length + 1).padStart(3, '0')}`,
-      title: form.title, message: form.message, audience: form.audience,
-      competitionName: form.competition || undefined,
-      status: form.scheduledDate ? 'SCHEDULED' : 'DRAFT',
-      scheduledDate: form.scheduledDate || undefined,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setAnnouncements((prev) => [newAnn, ...prev]);
-    toast.success(form.scheduledDate ? 'Announcement scheduled' : 'Announcement saved as draft');
-    setFormOpen(false);
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title, message: form.message, audience: form.audience,
+          competitionId: form.competition || undefined,
+          scheduledAt: form.scheduledDate || undefined,
+          status: form.scheduledDate ? 'DRAFT' : form.status,
+          createdBy: user?.id,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) { toast.error(json.error || 'Failed to create'); return; }
+      toast.success(form.status === 'PUBLISHED' ? 'Announcement published' : 'Announcement saved as draft');
+      setFormOpen(false);
+      fetchAnnouncements();
+    } catch { toast.error('Network error'); }
+    finally { setSubmitting(false); }
   };
 
-  const handleSend = (ann: Announcement) => {
-    setAnnouncements((prev) => prev.map((a) => a.id === ann.id ? { ...a, status: 'SENT', sentAt: new Date().toISOString() } : a));
-    toast.success(`"${ann.title}" sent`);
+  const handleAction = async (id: string, action: 'publish' | 'cancel') => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/announcements?action=${action}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (!json.success) { toast.error(json.error || 'Failed'); return; }
+      toast.success(`Announcement ${action === 'publish' ? 'published' : 'cancelled'}`);
+      fetchAnnouncements();
+    } catch { toast.error('Network error'); }
+    finally { setActionLoading(null); }
   };
 
-  if (loading) return <ListSkeleton />;
+  if (error && !loading) return <ErrorState message={error} onRetry={fetchAnnouncements} />;
+  if (loading) return <LoadingSkeleton />;
 
   return (
     <div className="space-y-4 p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Announcements</h1>
-          <p className="text-sm text-slate-500">Send notifications to users</p>
+          <p className="text-sm text-slate-500">Send notifications to users · {announcements.length} total</p>
         </div>
         <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openCreate}>
           <Plus className="h-4 w-4 mr-1.5" /> New Announcement
@@ -159,42 +178,48 @@ export function AdminAnnouncementsView() {
           <p className="text-sm text-slate-400 mt-1">Create your first announcement</p>
         </div>
       ) : (
-        <div className="grid gap-4">
-          {announcements.map((ann) => (
-            <Card key={ann.id} className="hover:shadow-sm transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    {statusIcon(ann.status)}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-slate-800">{ann.title}</h3>
-                        <Badge variant="secondary" className={statusBadge(ann.status)}>{ann.status}</Badge>
-                        <Badge variant="outline" className="text-xs">{AUDIENCE_LABELS[ann.audience]}</Badge>
-                      </div>
-                      <p className="text-sm text-slate-500 mt-1 line-clamp-2">{ann.message}</p>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
-                        {ann.competitionName && <span>Competition: {ann.competitionName}</span>}
-                        {ann.scheduledDate && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Scheduled: {ann.scheduledDate}</span>}
-                        {ann.sentAt && <span className="flex items-center gap-1"><Send className="h-3 w-3" /> Sent: {ann.sentAt}</span>}
-                        <span>Created: {ann.createdAt}</span>
-                      </div>
+        <div className="rounded-lg border bg-white max-h-[600px] overflow-y-auto">
+          <Table>
+            <TableHeader><TableRow className="bg-slate-50/80 sticky top-0">
+              <TableHead>Title</TableHead><TableHead>Audience</TableHead><TableHead>Competition</TableHead>
+              <TableHead>Status</TableHead><TableHead>Scheduled</TableHead><TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {announcements.map(ann => (
+                <TableRow key={ann.id}>
+                  <TableCell className="font-medium text-slate-800 max-w-[200px] truncate" title={ann.title}>{ann.title}</TableCell>
+                  <TableCell><Badge variant="outline" className="text-xs">{AUDIENCE_LABELS[ann.audience] || ann.audience}</Badge></TableCell>
+                  <TableCell className="text-slate-500 text-xs">{ann.competition?.name || '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {statusIcon(ann.status)}
+                      <Badge variant="secondary" className={statusBadge(ann.status)}>{ann.status}</Badge>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button size="sm" variant="outline" onClick={() => { setPreviewAnn(ann); setPreviewOpen(true); }}>
-                      <Eye className="h-3.5 w-3.5 mr-1" /> Preview
-                    </Button>
-                    {ann.status === 'DRAFT' && (
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleSend(ann)}>
-                        <Send className="h-3.5 w-3.5 mr-1" /> Send Now
+                  </TableCell>
+                  <TableCell className="text-slate-500 text-xs">{ann.scheduledAt ? new Date(ann.scheduledAt).toLocaleString() : '—'}</TableCell>
+                  <TableCell className="text-slate-500 text-xs">{new Date(ann.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setPreviewAnn(ann); setPreviewOpen(true); }}>
+                        <Eye className="h-3.5 w-3.5 mr-1" /> View
                       </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                      {ann.status === 'DRAFT' && (
+                        <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-7 px-2" disabled={actionLoading === ann.id} onClick={() => handleAction(ann.id, 'publish')}>
+                          <Send className="h-3.5 w-3.5 mr-1" /> Publish
+                        </Button>
+                      )}
+                      {ann.status !== 'CANCELLED' && ann.status !== 'PUBLISHED' && (
+                        <Button size="sm" variant="ghost" className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-7 px-2" disabled={actionLoading === ann.id} onClick={() => handleAction(ann.id, 'cancel')}>
+                          <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -203,9 +228,14 @@ export function AdminAnnouncementsView() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{previewAnn?.title}</DialogTitle>
-            <DialogDescription>{AUDIENCE_LABELS[previewAnn?.audience ?? 'ALL']} {previewAnn?.competitionName && `• ${previewAnn.competitionName}`}</DialogDescription>
+            <DialogDescription>{AUDIENCE_LABELS[previewAnn?.audience ?? 'ALL']} {previewAnn?.competition?.name && `• ${previewAnn.competition.name}`}</DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border bg-slate-50 p-4 text-sm text-slate-700 whitespace-pre-wrap">{previewAnn?.message}</div>
+          <div className="flex flex-wrap gap-4 text-xs text-slate-400 mt-2">
+            <span>Status: <Badge variant="secondary" className={statusBadge(previewAnn?.status || '')}>{previewAnn?.status}</Badge></span>
+            {previewAnn?.scheduledAt && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {new Date(previewAnn.scheduledAt).toLocaleString()}</span>}
+            <span>Recipients: {previewAnn?._count.userNotifications || 0}</span>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -217,44 +247,40 @@ export function AdminAnnouncementsView() {
             <DialogDescription>Compose a new announcement or notification</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Title</Label>
-              <Input className="mt-1" placeholder="Announcement title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            <div><Label>Title</Label><Input className="mt-1" placeholder="Announcement title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
+            <div><Label>Message</Label><Textarea className="mt-1" rows={4} placeholder="Write your message..." value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Audience</Label>
+                <Select value={form.audience} onValueChange={v => setForm({ ...form, audience: v })}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(AUDIENCE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Competition (optional)</Label>
+                <Select value={form.competition} onValueChange={v => setForm({ ...form, competition: v })}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All competitions</SelectItem>
+                    {competitions.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <Label>Message</Label>
-              <Textarea className="mt-1" rows={4} placeholder="Write your message..." value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
-            </div>
-            <div>
-              <Label>Audience</Label>
-              <Select value={form.audience} onValueChange={(v) => setForm({ ...form, audience: v as NotificationAudience })}>
+            <div><Label>Schedule Date (optional — leave empty for draft)</Label><Input type="datetime-local" className="mt-1" value={form.scheduledDate} onChange={e => setForm({ ...form, scheduledDate: e.target.value })} /></div>
+            <div><Label>Initial Status</Label>
+              <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(AUDIENCE_LABELS).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                  <SelectItem value="PUBLISHED">Publish Immediately</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>Competition (optional)</Label>
-              <Select value={form.competition} onValueChange={(v) => setForm({ ...form, competition: v })}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="All competitions" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All competitions</SelectItem>
-                  <SelectItem value="National Essay 2025">National Essay 2025</SelectItem>
-                  <SelectItem value="State Level Essay">State Level Essay</SelectItem>
-                  <SelectItem value="Inter-School Essay">Inter-School Essay</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Schedule Date (optional — leave empty to save as draft)</Label>
-              <Input type="datetime-local" className="mt-1" value={form.scheduledDate} onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave}>
-              {form.scheduledDate ? 'Schedule' : 'Save Draft'}
+            <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting} onClick={handleCreate}>
+              {submitting ? 'Creating...' : form.status === 'PUBLISHED' ? 'Publish Now' : 'Save Draft'}
             </Button>
           </DialogFooter>
         </DialogContent>

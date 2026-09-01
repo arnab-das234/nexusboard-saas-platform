@@ -1,0 +1,1016 @@
+     1→'use client';
+     2→
+     3→import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+     6→import {
+     7→  Search, Filter, FileText, PenTool, CheckCircle2, Clock,
+     8→  ZoomIn, ZoomOut, Maximize2, Download, ChevronLeft, ChevronRight,
+     9→  Copy, X, Plus, Save, Send, Eye, EyeOff, Loader2, GripVertical,
+    10→  AlertTriangle, ClipboardList, MessageSquare, BookOpen, ShieldCheck,
+    11→  Monitor, Smartphone, Menu, List, FileSearch,
+    12→} from 'lucide-react';
+    13→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    14→import { Button } from '@/components/ui/button';
+    15→import { Badge } from '@/components/ui/badge';
+    16→import { Input } from '@/components/ui/input';
+    17→import { Label } from '@/components/ui/label';
+    18→import { Textarea } from '@/components/ui/textarea';
+    19→import { Separator } from '@/components/ui/separator';
+    20→import { Skeleton } from '@/components/ui/skeleton';
+    21→import { Progress } from '@/components/ui/progress';
+    22→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+    23→import { ScrollArea } from '@/components/ui/scroll-area';
+    24→import {
+    25→  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    26→} from '@/components/ui/dialog';
+    27→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    28→import { toast } from 'sonner';
+    29→import type { EvaluationStatus } from '@/lib/types';
+    30→import { EVALUATION_STATUS_LABELS } from '@/lib/constants';
+    31→
+    32→// ── Types ────────────────────────────────────────────────────────────────────
+    33→interface EssayItem {
+    34→  id: string;
+    35→  anonymousId: string;
+    36→  competition: string;
+    37→  category: string;
+    38→  status: EvaluationStatus;
+    39→  assignedAt: string;
+    40→  deadline: string;
+    41→  fileName: string;
+    42→ totalPages: number;
+    43→}
+    44→
+    45→interface Criterion {
+    46→  id: string;
+    47→  name: string;
+    48→  maxMarks: number;
+    49→  description?: string;
+    50→}
+    51→
+    52→interface EssayDetail extends EssayItem {
+    53→ criteria: Criterion[];
+    54→ existingScores?: Record<string, { marks: number; comment: string }>;
+    55→  justification?: string;
+    56→  comments?: string;
+    57→  blindEvaluation: boolean;
+    58→}
+    59→
+    60→interface TextQuote {
+    61→  id: string;
+    62→  text: string;
+    63→  criterionId: string;
+    64→  page: number;
+    65→}
+    66→
+    67→// ── Mock Data ────────────────────────────────────────────────────────────────
+    68→const MOCK_ESSAYS: EssayItem[] = [
+    69→  { id: 'e1', anonymousId: 'Essay-2024-042', competition: 'National Essay Competition 2025', category: 'Senior (16-18)', status: 'ASSIGNED', assignedAt: '2025-07-08T10:00:00Z', deadline: '2025-07-18T23:59:00Z', fileName: 'essay_042_anonymous.pdf', totalPages: 5 },
+    70→  { id: 'e2', anonymousId: 'Essay-2024-039', competition: 'National Essay Competition 2025', category: 'Junior (13-15)', status: 'IN_PROGRESS', assignedAt: '2025-07-07T14:00:00Z', deadline: '2025-07-15T23:59:00Z', fileName: 'essay_039_anonymous.pdf', totalPages: 4 },
+    71→  { id: 'e3', anonymousId: 'Essay-2024-051', competition: 'Inter-School Essay Challenge', category: 'Senior (16-18)', status: 'ASSIGNED', assignedAt: '2025-07-06T09:00:00Z', deadline: '2025-07-12T23:59:00Z', fileName: 'essay_051_anonymous.pdf', totalPages: 6 },
+    72→  { id: 'e4', anonymousId: 'Essay-2024-055', competition: 'Inter-School Essay Challenge', category: 'Junior (13-15)', status: 'IN_PROGRESS', assignedAt: '2025-07-05T11:00:00Z', deadline: '2025-07-14T23:59:00Z', fileName: 'essay_055_anonymous.pdf', totalPages: 3 },
+    73→  { id: 'e5', anonymousId: 'Essay-2024-060', competition: 'State Level Essay Writing', category: 'Senior (16-18)', status: 'ASSIGNED', assignedAt: '2025-07-04T08:00:00Z', deadline: '2025-07-10T23:59:00Z', fileName: 'essay_060_anonymous.pdf', totalPages: 4 },
+    74→  { id: 'e6', anonymousId: 'Essay-2024-018', competition: 'National Essay Competition 2025', category: 'Senior (16-18)', status: 'SUBMITTED', assignedAt: '2025-07-01T10:00:00Z', deadline: '2025-07-10T23:59:00Z', fileName: 'essay_018_anonymous.pdf', totalPages: 5 },
+    75→  { id: 'e7', anonymousId: 'Essay-2024-025', competition: 'National Essay Competition 2025', category: 'Junior (13-15)', status: 'SUBMITTED', assignedAt: '2025-06-28T14:00:00Z', deadline: '2025-07-08T23:59:00Z', fileName: 'essay_025_anonymous.pdf', totalPages: 4 },
+    76→  { id: 'e8', anonymousId: 'Essay-2024-031', competition: 'Inter-School Essay Challenge', category: 'Senior (16-18)', status: 'SUBMITTED', assignedAt: '2025-06-25T09:00:00Z', deadline: '2025-07-05T23:59:00Z', fileName: 'essay_031_anonymous.pdf', totalPages: 6 },
+    77→  { id: 'e9', anonymousId: 'Essay-2024-045', competition: 'State Level Essay Writing', category: 'Junior (13-15)', status: 'ASSIGNED', assignedAt: '2025-07-09T06:00:00Z', deadline: '2025-07-20T23:59:00Z', fileName: 'essay_045_anonymous.pdf', totalPages: 5 },
+    78→  { id: 'e10', anonymousId: 'Essay-2024-048', competition: 'National Essay Competition 2025', category: 'Senior (16-18)', status: 'IN_PROGRESS', assignedAt: '2025-07-08T15:00:00Z', deadline: '2025-07-19T23:59:00Z', fileName: 'essay_048_anonymous.pdf', totalPages: 4 },
+    79→];
+    80→
+    81→const MOCK_CRITERIA: Criterion[] = [
+    82→  { id: 'c1', name: 'Content & Ideas', maxMarks: 30, description: 'Depth and originality of ideas, relevance to topic' },
+    83→  { id: 'c2', name: 'Structure & Organization', maxMarks: 20, description: 'Logical flow, paragraph structure, introduction and conclusion' },
+    84→  { id: 'c3', name: 'Language & Vocabulary', maxMarks: 20, description: 'Grammar, spelling, vocabulary range, sentence variety' },
+    85→  { id: 'c4', name: 'Critical Thinking', maxMarks: 15, description: 'Analysis, argumentation, evidence of independent thought' },
+    86→  { id: 'c5', name: 'Creativity & Style', maxMarks: 15, description: 'Original expression, engaging writing style, unique perspective' },
+    87→];
+    88→
+    89→const MOCK_EXISTING_SCORES: Record<string, { marks: number; comment: string }> = {
+    90→  c1: { marks: 24, comment: 'Strong ideas with good depth' },
+    91→  c2: { marks: 16, comment: 'Well organized structure' },
+    92→};
+    93→
+    94→// Simulated page content lines for the PDF placeholder
+    95→function generatePageLines(page: number) {
+    96→  const title = page === 1;
+    97→  const lines: { w: number; h: number; mt: boolean }[] = [];
+    98→  const seed = page * 7;
+    99→  if (title) {
+   100→    lines.push({ w: 65, h: 12, mt: true });
+   101→    lines.push({ w: 40, h: 8, mt: true });
+   102→    lines.push({ w: 0, h: 16, mt: false });
+   103→  }
+   104→  const lineCount = title ? 18 : 22;
+   105→  for (let i = 0; i < lineCount; i++) {
+   106→    const variance = ((seed + i * 13) % 30) - 10;
+   107→    lines.push({ w: Math.max(50, Math.min(95, 80 + variance)), h: 5, mt: i === 0 && !title });
+   108→  }
+   109→  return lines;
+   110→}
+   111→
+   112→// ── Status Helpers ───────────────────────────────────────────────────────────
+   113→function statusBadge(status: EvaluationStatus) {
+   114→  const map: Record<EvaluationStatus, string> = {
+   115→    ASSIGNED: 'bg-slate-100 text-slate-700',
+   116→    IN_PROGRESS: 'bg-amber-100 text-amber-700',
+   117→    SUBMITTED: 'bg-emerald-100 text-emerald-700',
+   118→    LOCKED: 'bg-rose-100 text-rose-700',
+   119→  };
+   120→  return map[status];
+   121→}
+   122→
+   123→// ── Resize Handle ────────────────────────────────────────────────────────────
+   124→function ResizeHandle({ direction = 'vertical' }: { direction?: 'vertical' | 'horizontal' }) {
+   125→  return (
+   126→    <PanelResizeHandle className={`
+   127→      relative flex items-center justify-center group
+   128→      ${direction === 'vertical' ? 'w-1.5 cursor-col-resize' : 'h-1.5 cursor-row-resize'}
+   129→    `}>
+   130→      <div className={`
+   131→        flex items-center justify-center rounded-full
+   132→        ${direction === 'vertical'
+   133→          ? 'w-1 h-10 gap-0.5'
+   134→          : 'h-1 w-10 flex-col gap-0.5'}
+   135→        bg-slate-200 group-hover:bg-emerald-400 group-active:bg-emerald-500 transition-colors
+   136→      `}>
+   137→        <GripVertical className={direction === 'vertical' ? 'h-3 w-3 text-slate-400 group-hover:text-white transition-colors' : 'h-3 w-3 text-slate-400 group-hover:text-white transition-colors rotate-90'} />
+   138→      </div>
+   139→    </PanelResizeHandle>
+   140→  );
+   141→}
+   142→
+   143→// ── PDF Viewer Placeholder ───────────────────────────────────────────────────
+   144→function PdfViewer({
+   145→  essay, zoom, setZoom, currentPage, setCurrentPage, isBlind,
+   146→  onTextSelect, mobileTab
+   147→}: {
+   148→  essay: EssayDetail; zoom: number; setZoom: (z: number) => void;
+   149→  currentPage: number; setCurrentPage: (p: number) => void;
+   150→  isBlind: boolean; onTextSelect: (text: string) => void;
+   151→  mobileTab: string;
+   152→}) {
+   153→  const viewerRef = useRef<HTMLDivElement>(null);
+   154→  const [showCopy, setShowCopy] = useState(false);
+   155→  const [selectedText, setSelectedText] = useState('');
+   156→  const [copyPos, setCopyPos] = useState({ x: 0, y: 0 });
+   157→
+   158→  const lines = useMemo(() => generatePageLines(currentPage), [currentPage]);
+   159→
+   160→  function handleMouseUp() {
+   161→    const sel = window.getSelection();
+   162→    if (sel && sel.toString().trim().length > 0) {
+   163→      const range = sel.getRangeAt(0);
+   164→      const rect = range.getBoundingClientRect();
+   165→      const viewerRect = viewerRef.current?.getBoundingClientRect();
+   166→      if (viewerRect) {
+   167→        setCopyPos({
+   168→          x: rect.left - viewerRect.left + rect.width / 2,
+   169→          y: rect.top - viewerRect.top - 10,
+   170→        });
+   171→      }
+   172→      setSelectedText(sel.toString().trim());
+   173→      setShowCopy(true);
+   174→    } else {
+   175→      setShowCopy(false);
+   176→    }
+   177→  }
+   178→
+   179→  function handleCopy() {
+   180→ navigator.clipboard.writeText(selectedText);
+   181→    onTextSelect(selectedText);
+   182→    setShowCopy(false);
+   183→    toast.success('Selection copied and added to references');
+   184→    window.getSelection()?.removeAllRanges();
+   185→  }
+   186→
+   187→  if (mobileTab && mobileTab !== 'viewer') return null;
+   188→
+   189→  return (
+   190→    <div className="flex flex-col h-full">
+   191→      {/* Viewer Toolbar */}
+   192→      <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 shrink-0">
+   193→        <div className="flex items-center gap-2 min-w-0">
+   194→          <FileText className="h-4 w-4 text-slate-500 shrink-0" />
+   195→          <span className="text-sm font-medium text-slate-700 truncate">{essay.fileName}</span>
+   196→          {isBlind && (
+   197→            <Badge className="bg-teal-100 text-teal-700 text-xs border-teal-200 gap-1 shrink-0">
+   198→              <ShieldCheck className="h-3 w-3" /> Anonymous
+   199→            </Badge>
+   200→          )}
+   201→        </div>
+   202→        <div className="flex items-center gap-1 shrink-0">
+   203→          <TooltipProvider><Tooltip><TooltipTrigger asChild>
+   204→            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(Math.max(50, zoom - 25))}>
+   205→              <ZoomOut className="h-3.5 w-3.5" />
+   206→            </Button>
+   207→          </TooltipTrigger><TooltipContent>Zoom Out</TooltipContent></Tooltip></TooltipProvider>
+   208→          <span className="text-xs font-mono text-slate-500 w-10 text-center">{zoom}%</span>
+   209→          <TooltipProvider><Tooltip><TooltipTrigger asChild>
+   210→            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(Math.min(200, zoom + 25))}>
+   211→              <ZoomIn className="h-3.5 w-3.5" />
+   212→            </Button>
+   213→          </TooltipTrigger><TooltipContent>Zoom In</TooltipContent></Tooltip></TooltipProvider>
+   214→          <Separator orientation="vertical" className="h-4 mx-1" />
+   215→          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage <= 1}>
+   216→            <ChevronLeft className="h-3.5 w-3.5" />
+   217→          </Button>
+   218→          <span className="text-xs font-mono text-slate-500">{currentPage} / {essay.totalPages}</span>
+   219→          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentPage(Math.min(essay.totalPages, currentPage + 1))} disabled={currentPage >= essay.totalPages}>
+   220→            <ChevronRight className="h-3.5 w-3.5" />
+   221→          </Button>
+   222→          <Separator orientation="vertical" className="h-4 mx-1" />
+   223→          <TooltipProvider><Tooltip><TooltipTrigger asChild>
+   224→            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast.info('Fullscreen mode coming soon')}>
+   225→              <Maximize2 className="h-3.5 w-3.5" />
+   226→            </Button>
+   227→          </TooltipTrigger><TooltipContent>Fullscreen</TooltipContent></Tooltip></TooltipProvider>
+   228→          <TooltipProvider><Tooltip><TooltipTrigger asChild>
+   229→            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast.info('Download not available in demo mode')}>
+   230→              <Download className="h-3.5 w-3.5" />
+   231→            </Button>
+   232→          </TooltipTrigger><TooltipContent>Download</TooltipContent></Tooltip></TooltipProvider>
+   233→        </div>
+   234→      </div>
+   235→
+   236→      {/* PDF Content Area */}
+   237→      <div
+   238→        ref={viewerRef}
+   239→        className="flex-1 overflow-auto bg-slate-200/60 relative"
+   240→        onMouseUp={handleMouseUp}
+   241→      >
+   242→        <div className="mx-auto my-4" style={{ width: `${Math.min(100, zoom)}%`, maxWidth: '680px' }}>
+   243→          <div
+   244→            className="bg-white shadow-lg rounded-sm mx-auto"
+   245→            style={{
+   246→              padding: `${Math.round(zoom * 0.6)}px ${Math.round(zoom * 0.8)}px`,
+   247→              minHeight: '900px',
+   248→              transform: `scale(${zoom / 100})`,
+   249→              transformOrigin: 'top center',
+   250→            }}
+   251→          >
+   252→            {/* Simulated text lines */}
+   253→            <div className="space-y-2.5 select-text">
+   254→              {lines.map((line, i) => (
+   255→                <div key={i} style={{ marginTop: line.mt ? '12px' : undefined }}>
+   256→                  <div
+   257→                    className="bg-slate-200 rounded-sm"
+   258→                    style={{ width: `${line.w}%`, height: `${line.h}px` }}
+   259→                  />
+   260→                </div>
+   261→              ))}
+   262→            </div>
+   263→            {/* Page number footer */}
+   264→            <div className="mt-8 pt-4 border-t border-slate-100 text-center">
+   265→              <span className="text-xs text-slate-400">Page {currentPage} of {essay.totalPages}</span>
+   266→            </div>
+   267→          </div>
+   268→        </div>
+   269→
+   270→        {/* Floating Copy Button */}
+   271→        <AnimatePresence>
+   272→          {showCopy && (
+   273→            <motion.div
+   274→              initial={{ opacity: 0, scale: 0.9, y: 4 }}
+   275→              animate={{ opacity: 1, scale: 1, y: 0 }}
+   276→              exit={{ opacity: 0, scale: 0.9, y: 4 }}
+   277→              className="absolute z-50"
+   278→              style={{ left: copyPos.x, top: copyPos.y, transform: 'translateX(-50%)' }}
+   279→            >
+   280→              <Button
+   281→                size="sm"
+   282→                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-lg text-xs h-7 px-3"
+   283→                onClick={handleCopy}
+   284→              >
+   285→                <Copy className="h-3 w-3" /> Copy Selection
+   286→              </Button>
+   287→            </motion.div>
+   288→          )}
+   289→        </AnimatePresence>
+   290→      </div>
+   291→    </div>
+   292→  );
+   293→}
+   294→
+   295→// ── Evaluation Form ──────────────────────────────────────────────────────────
+   296→function EvaluationForm({
+   297→  essay, scores, setScores, justification, setJustification,
+   298→  comments, setComments, quotes, setQuotes, isSubmitted,
+   299→  onSaveDraft, onSubmit, saving, mobileTab
+   300→}: {
+   301→  essay: EssayDetail;
+   302→  scores: Record<string, number>;
+   303→  setScores: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+   304→  justification: string; setJustification: (v: string) => void;
+   305→  comments: string; setComments: (v: string) => void;
+   306→  quotes: TextQuote[]; setQuotes: React.Dispatch<React.SetStateAction<TextQuote[]>>;
+   307→  isSubmitted: boolean;
+   308→  onSaveDraft: () => void;
+   309→  onSubmit: () => void;
+   310→  saving: boolean;
+   311→  mobileTab: string;
+   312→}) {
+   313→  const maxTotal = essay.criteria.reduce((sum, c) => sum + c.maxMarks, 0);
+   314→  const currentTotal = Object.values(scores).reduce((sum, v) => sum + (v || 0), 0);
+   315→  const totalPct = maxTotal > 0 ? (currentTotal / maxTotal) * 100 : 0;
+   316→
+   317→  const totalColorClass =
+   318→    currentTotal > maxTotal
+   319→      ? 'text-rose-600'
+   320→      : totalPct >= 90
+   321→        ? 'text-amber-600'
+   322→        : 'text-emerald-600';
+   323→
+   324→  function updateScore(id: string, value: string) {
+   325→    const num = value === '' ? 0 : Math.max(0, Number(value));
+   326→    setScores((prev) => ({ ...prev, [id]: num }));
+   327→  }
+   328→
+   329→  function removeQuote(quoteId: string) {
+   330→    setQuotes((prev) => prev.filter((q) => q.id !== quoteId));
+   331→  }
+   332→
+   333→  function updateQuoteCriterion(quoteId: string, criterionId: string) {
+   334→    setQuotes((prev) => prev.map((q) => q.id === quoteId ? { ...q, criterionId } : q));
+   335→  }
+   336→
+   337→  const allFilled = essay.criteria.every((c) => (scores[c.id] ?? 0) > 0);
+   338→  const noOverMax = essay.criteria.every((c) => (scores[c.id] ?? 0) <= c.maxMarks);
+   339→  const isValid = allFilled && noOverMax && justification.trim().length > 0;
+   340→
+   341→  if (mobileTab && mobileTab !== 'evaluation') return null;
+   342→
+   343→  return (
+   344→    <div className="flex flex-col h-full">
+   345→      {/* Form Header */}
+   346→      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 shrink-0">
+   347→        <div className="flex items-center justify-between mb-2">
+   348→          <div className="min-w-0">
+   349→            <p className="text-sm font-semibold text-slate-800 truncate">{essay.anonymousId}</p>
+   350→            <p className="text-xs text-slate-500 truncate">{essay.competition}</p>
+   351→          </div>
+   352→          <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs shrink-0 ml-2">{essay.category}</Badge>
+   353→        </div>
+   354→        <div className="flex items-center justify-between">
+   355→          <div className="flex items-center gap-2">
+   356→            <span className="text-xs text-slate-500">Total Score:</span>
+   357→            <span className={`text-lg font-bold ${totalColorClass}`}>{currentTotal}</span>
+   358→            <span className="text-xs text-slate-400">/ {maxTotal}</span>
+   359→          </div>
+   360→          {isSubmitted && (
+   361→            <Badge className="bg-emerald-100 text-emerald-700 text-xs gap-1">
+   362→              <CheckCircle2 className="h-3 w-3" /> Submitted
+   363→            </Badge>
+   364→          )}
+   365→        </div>
+   366→        <Progress value={Math.min(100, totalPct)} className={`h-1.5 mt-1.5 ${currentTotal > maxTotal ? '[&>div]:bg-rose-500' : ''}`} />
+   367→      </div>
+   368→
+   369→      {/* Scrollable Form Content */}
+   370→      <ScrollArea className="flex-1">
+   371→        <div className="p-4 space-y-5">
+   372→          {/* Criteria */}
+   373→          <div>
+   374→            <div className="flex items-center gap-2 mb-3">
+   375→              <ClipboardList className="h-4 w-4 text-emerald-600" />
+   376→              <p className="text-sm font-semibold text-slate-700">Evaluation Criteria</p>
+   377→            </div>
+   378→            <div className="space-y-4">
+   379→              {essay.criteria.map((criterion) => {
+   380→                const val = scores[criterion.id] ?? 0;
+   381→                const overMax = val > criterion.maxMarks;
+   382→                const nearMax = val >= criterion.maxMarks * 0.9 && !overMax;
+   383→                return (
+   384→                  <div key={criterion.id} className="rounded-lg border border-slate-200 p-3">
+   385→                    <div className="flex items-start justify-between gap-2 mb-1">
+   386→                      <div className="min-w-0">
+   387→                        <p className="text-sm font-medium text-slate-700">{criterion.name}</p>
+   388→                        {criterion.description && (
+   389→                          <p className="text-xs text-slate-400 mt-0.5">{criterion.description}</p>
+   390→                        )}
+   391→                      </div>
+   392→                      <span className="text-xs text-slate-400 shrink-0">Max: {criterion.maxMarks}</span>
+   393→                    </div>
+   394→                    <div className="flex items-center gap-2 mt-2">
+   395→                      <div className="relative flex-1">
+   396→                        <Input
+   397→                          type="number"
+   398→                          min={0}
+   399→                          max={criterion.maxMarks}
+   400→                          value={val || ''}
+   401→                          onChange={(e) => updateScore(criterion.id, e.target.value)}
+   402→                          placeholder="0"
+   403→                          disabled={isSubmitted}
+   404→                          className={`h-8 text-sm pr-12 ${
+   405→                            overMax ? 'border-rose-300 focus-visible:ring-rose-400 bg-rose-50/50'
+   406→                            : nearMax ? 'border-amber-300 focus-visible:ring-amber-400 bg-amber-50/50'
+   407→                            : ''
+   408→                          }`}
+   409→                        />
+   410→                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">/ {criterion.maxMarks}</span>
+   411→                      </div>
+   412→                    </div>
+   413→                    <Textarea
+   414→                      placeholder="Brief comment on this criterion..."
+   415→                      value={essay.existingScores?.[criterion.id]?.comment ?? ''}
+   416→                      disabled={isSubmitted}
+   417→                      rows={1}
+   418→                      className="mt-2 text-xs resize-none"
+   419→                    />
+   420→                  </div>
+   421→                );
+   422→              })}
+   423→            </div>
+   424→          </div>
+   425→
+   426→          <Separator />
+   427→
+   428→          {/* Overall Justification */}
+   429→          <div>
+   430→            <div className="flex items-center gap-2 mb-2">
+   431→              <MessageSquare className="h-4 w-4 text-teal-600" />
+   432→              <p className="text-sm font-semibold text-slate-700">Overall Justification</p>
+   433→              <span className="text-xs text-rose-400">*</span>
+   434→            </div>
+   435→            <Textarea
+   436→              placeholder="Provide a detailed justification for the scores awarded. Explain the strengths and weaknesses of the essay..."
+   437→              value={justification}
+   438→              onChange={(e) => setJustification(e.target.value)}
+   439→              disabled={isSubmitted}
+   440→              rows={4}
+   441→              className={`text-sm resize-none ${!justification.trim() && isSubmitted ? '' : ''}`}
+   442→            />
+   443→          </div>
+   444→
+   445→          <Separator />
+   446→
+   447→          {/* Comments */}
+   448→          <div>
+   449→            <div className="flex items-center gap-2 mb-2">
+   450→              <BookOpen className="h-4 w-4 text-amber-600" />
+   451→              <p className="text-sm font-semibold text-slate-700">Comments</p>
+   452→            </div>
+   453→            <Textarea
+   454→              placeholder="Any additional comments for the student (shown in results)..."
+   455→              value={comments}
+   456→              onChange={(e) => setComments(e.target.value)}
+   457→              disabled={isSubmitted}
+   458→              rows={3}
+   459→              className="text-sm resize-none"
+   460→            />
+   461→          </div>
+   462→
+   463→          <Separator />
+   464→
+   465→          {/* OCR / Text References */}
+   466→          <div>
+   467→            <div className="flex items-center gap-2 mb-2">
+   468→              <FileSearch className="h-4 w-4 text-slate-500" />
+   469→              <p className="text-sm font-semibold text-slate-700">Text References</p>
+   470→              <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-500">{quotes.length}</Badge>
+   471→            </div>
+   472→            <p className="text-xs text-slate-400 mb-3">Select text in the PDF viewer to add references linked to criteria.</p>
+   473→            {quotes.length === 0 ? (
+   474→              <div className="rounded-lg border border-dashed border-slate-300 py-6 text-center">
+   475→                <FileText className="h-6 w-6 text-slate-300 mx-auto mb-1" />
+   476→                <p className="text-xs text-slate-400">No text references yet</p>
+   477→                <p className="text-xs text-slate-300 mt-0.5">Select text in the viewer to add</p>
+   478→              </div>
+   479→            ) : (
+   480→              <div className="space-y-2">
+   481→                {quotes.map((quote) => (
+   482→                  <div key={quote.id} className="rounded-lg border border-slate-200 p-2.5 group">
+   483→                    <div className="flex items-start justify-between gap-2">
+   484→                      <p className="text-xs text-slate-600 italic line-clamp-2">&ldquo;{quote.text}&rdquo;</p>
+   485→                      {!isSubmitted && (
+   486→                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100" onClick={() => removeQuote(quote.id)}>
+   487→                          <X className="h-3 w-3 text-rose-500" />
+   488→                        </Button>
+   489→                      )}
+   490→                    </div>
+   491→                    <div className="flex items-center gap-2 mt-1.5">
+   492→                      <span className="text-xs text-slate-400">Page {quote.page}</span>
+   493→                      {!isSubmitted && (
+   494→                        <select
+   495→                          value={quote.criterionId}
+   496→                          onChange={(e) => updateQuoteCriterion(quote.id, e.target.value)}
+   497→                          className="text-xs bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 text-slate-600"
+   498→                        >
+   499→                          <option value="">Link to criterion...</option>
+   500→                          {essay.criteria.map((c) => (
+   501→                            <option key={c.id} value={c.id}>{c.name}</option>
+   502→                          ))}
+   503→                        </select>
+   504→                      )}
+   505→                      {quote.criterionId && (
+   506→                        <Badge variant="secondary" className="text-xs bg-emerald-50 text-emerald-700">
+   507→                          {essay.criteria.find((c) => c.id === quote.criterionId)?.name}
+   508→                        </Badge>
+   509→                      )}
+   510→                    </div>
+   511→                  </div>
+   512→                ))}
+   513→              </div>
+   514→            )}
+   515→          </div>
+   516→
+   517→          {/* Action Buttons */}
+   518→          {!isSubmitted && (
+   519→            <div className="flex flex-col gap-2 pt-2 pb-4">
+   520→              <Button
+   521→                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+   522→                onClick={onSubmit}
+   523→                disabled={!isValid || saving}
+   524→              >
+   525→                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+   526→                Submit Evaluation
+   527→              </Button>
+   528→              <Button
+   529→                variant="outline"
+   530→                className="gap-2 border-slate-300"
+   531→                onClick={onSaveDraft}
+   532→                disabled={saving}
+   533→              >
+   534→                <Save className="h-4 w-4" /> Save Draft
+   535→              </Button>
+   536→              {!isValid && (
+   537→                <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+   538→                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+   539→                  {!allFilled ? 'Please score all criteria. ' : ''}
+   540→                  {!noOverMax ? 'Some scores exceed maximum marks. ' : ''}
+   541→                  {!justification.trim() ? 'Justification is required. ' : ''}
+   542→                </div>
+   543→              )}
+   544→            </div>
+   545→          )}
+   546→
+   547→          {isSubmitted && (
+   548→            <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 rounded-lg px-4 py-3 pb-4">
+   549→              <CheckCircle2 className="h-4 w-4" />
+   550→              <span className="font-medium">Evaluation submitted successfully</span>
+   551→            </div>
+   552→          )}
+   553→        </div>
+   554→      </ScrollArea>
+   555→    </div>
+   556→  );
+   557→}
+   558→
+   559→// ── Essay List Sidebar ───────────────────────────────────────────────────────
+   560→function EssaySidebar({
+   561→  essays, selectedId, onSelect, search, setSearch, statusFilter, setStatusFilter,
+   562→  mobileTab
+   563→}: {
+   564→  essays: EssayItem[]; selectedId: string | null; onSelect: (id: string) => void;
+   565→  search: string; setSearch: (v: string) => void;
+   566→  statusFilter: string; setStatusFilter: (v: string) => void;
+   567→  mobileTab: string;
+   568→}) {
+   569→  const filtered = essays.filter((e) => {
+   570→    const matchSearch = e.anonymousId.toLowerCase().includes(search.toLowerCase()) ||
+   571→      e.competition.toLowerCase().includes(search.toLowerCase());
+   572→    const matchStatus = statusFilter === 'all' || e.status === statusFilter;
+   573→    return matchSearch && matchStatus;
+   574→  });
+   575→
+   576→  if (mobileTab && mobileTab !== 'list') return null;
+   577→
+   578→  return (
+   579→    <div className="flex flex-col h-full">
+   580→      {/* Search and Filter */}
+   581→      <div className="p-3 border-b border-slate-200 space-y-2 shrink-0">
+   582→        <div className="relative">
+   583→          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+   584→          <Input
+   585→            placeholder="Search essays..."
+   586→            value={search}
+   587→            onChange={(e) => setSearch(e.target.value)}
+   588→            className="h-8 pl-8 text-sm"
+   589→          />
+   590→        </div>
+   591→        <div className="flex gap-1.5">
+   592→          {['all', 'ASSIGNED', 'IN_PROGRESS', 'SUBMITTED'].map((s) => (
+   593→            <Button
+   594→              key={s}
+   595→              variant={statusFilter === s ? 'default' : 'outline'}
+   596→              size="sm"
+   597→              className={`h-7 text-xs px-2 ${statusFilter === s ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'text-slate-500'}`}
+   598→              onClick={() => setStatusFilter(s)}
+   599→            >
+   600→              {s === 'all' ? 'All' : EVALUATION_STATUS_LABELS[s as EvaluationStatus]}
+   601→            </Button>
+   602→          ))}
+   603→        </div>
+   604→      </div>
+   605→
+   606→      {/* Essay List */}
+   607→      <div className="flex-1 overflow-y-auto max-h-[calc(100vh-220px)]">
+   608→        {filtered.length === 0 ? (
+   609→          <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+   610→            <Search className="h-8 w-8 text-slate-300 mb-2" />
+   611→            <p className="text-sm text-slate-500">No essays found</p>
+   612→            <p className="text-xs text-slate-400 mt-0.5">Try adjusting your search or filter</p>
+   613→          </div>
+   614→        ) : (
+   615→          <div className="p-2 space-y-1">
+   616→            {filtered.map((essay) => {
+   617→              const isActive = selectedId === essay.id;
+   618→              const isSubmitted = essay.status === 'SUBMITTED';
+   619→              return (
+   620→                <motion.button
+   621→                  key={essay.id}
+   622→                  whileTap={{ scale: 0.98 }}
+   623→                  onClick={() => onSelect(essay.id)}
+   624→                  className={`
+   625→                    w-full text-left rounded-lg border p-3 transition-all
+   626→                    ${isActive
+   627→                      ? 'border-emerald-400 bg-emerald-50/60 shadow-sm ring-1 ring-emerald-200'
+   628→                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+   629→                    }
+   630→                  `}
+   631→                >
+   632→                  <div className="flex items-start justify-between gap-2">
+   633→                    <div className="min-w-0">
+   634→                      <p className={`text-sm font-mono font-semibold truncate ${isActive ? 'text-emerald-800' : 'text-slate-700'}`}>
+   635→                        {essay.anonymousId}
+   636→                      </p>
+   637→                      <p className="text-xs text-slate-400 truncate mt-0.5">{essay.competition}</p>
+   638→                    </div>
+   639→                    <Badge variant="secondary" className={`${statusBadge(essay.status)} text-xs shrink-0`}>
+   640→                      {EVALUATION_STATUS_LABELS[essay.status]}
+   641→                    </Badge>
+   642→                  </div>
+   643→                  <div className="flex items-center gap-2 mt-2">
+   644→                    <Badge variant="outline" className="text-xs border-slate-200 text-slate-500">
+   645→                      {essay.category}
+   646→                    </Badge>
+   647→                    <span className="text-xs text-slate-400 ml-auto">{essay.totalPages}pg</span>
+   648→                  </div>
+   649→                  {isSubmitted && (
+   650→                    <div className="flex items-center gap-1 mt-1.5 text-xs text-emerald-600">
+   651→                      <CheckCircle2 className="h-3 w-3" />
+   652→                      <span>Evaluated</span>
+   653→                    </div>
+   654→                  )}
+   655→                </motion.button>
+   656→              );
+   657→            })}
+   658→          </div>
+   659→        )}
+   660→      </div>
+   661→    </div>
+   662→  );
+   663→}
+   664→
+   665→// ── Empty State ──────────────────────────────────────────────────────────────
+   666→function EmptyState() {
+   667→  return (
+   668→    <div className="flex flex-col items-center justify-center h-full text-center px-8">
+   669→      <motion.div
+   670→        initial={{ scale: 0.9, opacity: 0 }}
+   671→        animate={{ scale: 1, opacity: 1 }}
+   672→        className="flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-50 mb-4"
+   673→      >
+   674→        <PenTool className="h-10 w-10 text-emerald-400" />
+   675→      </motion.div>
+   676→      <h3 className="text-lg font-semibold text-slate-700">Select an Essay</h3>
+   677→      <p className="text-sm text-slate-400 mt-1 max-w-sm">
+   678→        Choose an essay from the list on the left to begin your evaluation.
+   679→        The PDF viewer and evaluation form will appear here.
+   680→      </p>
+   681→    </div>
+   682→  );
+   683→}
+   684→
+   685→// ── Mobile Layout Detector ───────────────────────────────────────────────────
+   686→function useIsMobileCustom() {
+   687→  const [isMobile, setIsMobile] = useState(false);
+   688→  useEffect(() => {
+   689→    const mq = window.matchMedia('(max-width: 768px)');
+   690→    setIsMobile(mq.matches);
+   691→    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+   692→    mq.addEventListener('change', handler);
+   693→    return () => mq.removeEventListener('change', handler);
+   694→  }, []);
+   695→  return isMobile;
+   696→}
+   697→
+   698→// ── Skeleton ─────────────────────────────────────────────────────────────────
+   699→function WorkspaceSkeleton() {
+   700→  return (
+   701→    <div className="flex h-[calc(100vh-120px)] gap-4 p-4">
+   702→      <div className="w-72 shrink-0 space-y-3 p-3">
+   703→        <Skeleton className="h-8 w-full" />
+   704→        <Skeleton className="h-6 w-full" />
+   705→        {Array.from({ length: 6 }).map((_, i) => (
+   706→          <Skeleton key={i} className="h-20 w-full rounded-lg" />
+   707→        ))}
+   708→      </div>
+   709→      <div className="flex-1 bg-slate-100 rounded-lg">
+   710→        <Skeleton className="h-full w-full rounded-lg" />
+   711→      </div>
+   712→      <div className="w-80 shrink-0 space-y-3 p-3">
+   713→        <Skeleton className="h-8 w-full" />
+   714→        {Array.from({ length: 5 }).map((_, i) => (
+   715→          <Skeleton key={i} className="h-24 w-full rounded-lg" />
+   716→        ))}
+   717→      </div>
+   718→    </div>
+   719→  );
+   720→}
+   721→
+   722→// ── Main View ────────────────────────────────────────────────────────────────
+   723→export function ExaminerWorkspaceView() {
+   724→  const [essays, setEssays] = useState<EssayItem[]>([]);
+   725→  const [loading, setLoading] = useState(true);
+   726→  const [selectedId, setSelectedId] = useState<string | null>(null);
+   727→  const [search, setSearch] = useState('');
+   728→  const [statusFilter, setStatusFilter] = useState('all');
+   729→
+   730→  // PDF viewer state
+   731→  const [zoom, setZoom] = useState(100);
+   732→  const [currentPage, setCurrentPage] = useState(1);
+   733→
+   734→  // Evaluation form state
+   735→  const [scores, setScores] = useState<Record<string, number>>({});
+   736→  const [justification, setJustification] = useState('');
+   737→  const [comments, setComments] = useState('');
+   738→  const [quotes, setQuotes] = useState<TextQuote[]>([]);
+   739→  const [saving, setSaving] = useState(false);
+   740→  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+   741→  const [isSubmitted, setIsSubmitted] = useState(false);
+   742→
+   743→  // Mobile state
+   744→  const isMobile = useIsMobileCustom();
+   745→  const [mobileTab, setMobileTab] = useState('list');
+   746→
+   747→  // Load essays
+   748→  useEffect(() => {
+   749→    async function load() {
+   750→      try {
+   751→        const res = await fetch('/api/seed?action=examiner-workspace');
+   752→        if (res.ok) {
+   753→          const json = await res.json();
+   754→          if (json.data) { setEssays(json.data); setLoading(false); return; }
+   755→        }
+   756→      } catch { /* fall through */ }
+   757→      setEssays(MOCK_ESSAYS);
+   758→      setLoading(false);
+   759→    }
+   760→    load();
+   761→  }, []);
+   762→
+   763→  // Get selected essay detail
+   764→  const selectedEssay: EssayDetail | null = useMemo(() => {
+   765→    if (!selectedId) return null;
+   766→    const essay = essays.find((e) => e.id === selectedId);
+   767→    if (!essay) return null;
+   768→    return {
+   769→      ...essay,
+   770→      criteria: MOCK_CRITERIA,
+   771→      existingScores: essay.status === 'IN_PROGRESS' ? MOCK_EXISTING_SCORES : undefined,
+   772→      blindEvaluation: true,
+   773→    };
+   774→  }, [selectedId, essays]);
+   775→
+   776→  // Initialize scores when essay changes
+   777→  useEffect(() => {
+   778→    if (selectedEssay) {
+   779→      const initial: Record<string, number> = {};
+   780→      selectedEssay.criteria.forEach((c) => {
+   781→        initial[c.id] = selectedEssay.existingScores?.[c.id]?.marks ?? 0;
+   782→      });
+   783→      setScores(initial);
+   784→      setJustification(selectedEssay.justification ?? '');
+   785→      setComments(selectedEssay.comments ?? '');
+   786→      setQuotes([]);
+   787→      setCurrentPage(1);
+   788→      setZoom(100);
+   789→      setIsSubmitted(selectedEssay.status === 'SUBMITTED');
+   790→    }
+   791→  }, [selectedEssay?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+   792→
+   793→  const handleSelect = useCallback((id: string) => {
+   794→    setSelectedId(id);
+   795→    if (isMobile) setMobileTab('viewer');
+   796→  }, [isMobile]);
+   797→
+   798→  const handleTextSelect = useCallback((text: string) => {
+   799→    if (!selectedEssay || isSubmitted) return;
+   800→    const newQuote: TextQuote = {
+   801→      id: `q-${Date.now()}`,
+   802→      text,
+   803→      criterionId: '',
+   804→      page: currentPage,
+   805→    };
+   806→    setQuotes((prev) => [...prev, newQuote]);
+   807→  }, [selectedEssay, isSubmitted, currentPage]);
+   808→
+   809→  const handleSaveDraft = useCallback(async () => {
+   810→    setSaving(true);
+   811→    // Simulate API call
+   812→    await new Promise((r) => setTimeout(r, 800));
+   813→    setSaving(false);
+   814→    // Update essay status to IN_PROGRESS
+   815→    if (selectedId) {
+   816→      setEssays((prev) =>
+   817→        prev.map((e) => (e.id === selectedId ? { ...e, status: 'IN_PROGRESS' as EvaluationStatus } : e))
+   818→      );
+   819→    }
+   820→    toast.success('Draft saved successfully');
+   821→  }, [selectedId]);
+   822→
+   823→  const handleConfirmSubmit = useCallback(async () => {
+   824→    setSaving(true);
+   825→    setSubmitDialogOpen(false);
+   826→    // Simulate API call
+   827→    await new Promise((r) => setTimeout(r, 1200));
+   828→    setSaving(false);
+   829→    setIsSubmitted(true);
+   830→    if (selectedId) {
+   831→      setEssays((prev) =>
+   832→        prev.map((e) => (e.id === selectedId ? { ...e, status: 'SUBMITTED' as EvaluationStatus } : e))
+   833→      );
+   834→    }
+   835→    toast.success('Evaluation submitted successfully!');
+   836→  }, [selectedId]);
+   837→
+   838→  const handleSubmit = useCallback(() => {
+   839→    setSubmitDialogOpen(true);
+   840→  }, []);
+   841→
+   842→  if (loading) return <WorkspaceSkeleton />;
+   843→
+   844→  // ── Mobile Layout ─────────────────────────────────────────────────────────
+   845→  if (isMobile) {
+   846→    return (
+   847→      <div className="flex flex-col h-[calc(100vh-120px)]">
+   848→        {/* Mobile Tab Bar */}
+   849→        <div className="flex border-b border-slate-200 bg-slate-50 shrink-0">
+   850→          <Button
+   851→            variant={mobileTab === 'list' ? 'default' : 'ghost'}
+   852→            className={`flex-1 h-10 rounded-none text-xs gap-1.5 ${mobileTab === 'list' ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}
+   853→            onClick={() => setMobileTab('list')}
+   854→          >
+   855→            <List className="h-3.5 w-3.5" /> Essays
+   856→          </Button>
+   857→          <Button
+   858→            variant={mobileTab === 'viewer' ? 'default' : 'ghost'}
+   859→            className={`flex-1 h-10 rounded-none text-xs gap-1.5 ${mobileTab === 'viewer' ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}
+   860→            onClick={() => setMobileTab('viewer')}
+   861→            disabled={!selectedEssay}
+   862→          >
+   863→            <Eye className="h-3.5 w-3.5" /> Viewer
+   864→          </Button>
+   865→          <Button
+   866→            variant={mobileTab === 'evaluation' ? 'default' : 'ghost'}
+   867→            className={`flex-1 h-10 rounded-none text-xs gap-1.5 ${mobileTab === 'evaluation' ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}
+   868→            onClick={() => setMobileTab('evaluation')}
+   869→            disabled={!selectedEssay}
+   870→          >
+   871→            <PenTool className="h-3.5 w-3.5" /> Evaluate
+   872→          </Button>
+   873→        </div>
+   874→
+   875→        {/* Mobile Content */}
+   876→        <div className="flex-1 overflow-hidden">
+   877→          <EssaySidebar
+   878→            essays={essays} selectedId={selectedId} onSelect={handleSelect}
+   879→            search={search} setSearch={setSearch} statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+   880→            mobileTab={mobileTab}
+   881→          />
+   882→          {selectedEssay ? (
+   883→            <>
+   884→              <PdfViewer
+   885→                essay={selectedEssay} zoom={zoom} setZoom={setZoom}
+   886→                currentPage={currentPage} setCurrentPage={setCurrentPage}
+   887→                isBlind={selectedEssay.blindEvaluation} onTextSelect={handleTextSelect}
+   888→                mobileTab={mobileTab}
+   889→              />
+   890→              <EvaluationForm
+   891→                essay={selectedEssay} scores={scores} setScores={setScores}
+   892→                justification={justification} setJustification={setJustification}
+   893→                comments={comments} setComments={setComments}
+   894→                quotes={quotes} setQuotes={setQuotes}
+   895→                isSubmitted={isSubmitted}
+   896→                onSaveDraft={handleSaveDraft} onSubmit={handleSubmit}
+   897→                saving={saving} mobileTab={mobileTab}
+   898→              />
+   899→            </>
+   900→          ) : mobileTab !== 'list' ? (
+   901→            <EmptyState />
+   902→          ) : null}
+   903→        </div>
+   904→
+   905→        {/* Submit Confirmation Dialog */}
+   906→        <Dialog open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
+   907→          <DialogContent>
+   908→            <DialogHeader>
+   909→              <DialogTitle>Submit Evaluation</DialogTitle>
+   910→              <DialogDescription>
+   911→                Are you sure you want to submit your evaluation for <strong>{selectedEssay?.anonymousId}</strong>?
+   912→                This action cannot be undone.
+   913→              </DialogDescription>
+   914→            </DialogHeader>
+   915→            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+   916→              <p className="text-sm text-amber-800">Please review your scores and justification carefully before submitting. Once submitted, the evaluation will be locked.</p>
+   917→            </div>
+   918→            <DialogFooter>
+   919→              <Button variant="outline" onClick={() => setSubmitDialogOpen(false)}>Cancel</Button>
+   920→              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleConfirmSubmit} disabled={saving}>
+   921→                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+   922→                Confirm Submit
+   923→              </Button>
+   924→            </DialogFooter>
+   925→          </DialogContent>
+   926→        </Dialog>
+   927→      </div>
+   928→    );
+   929→  }
+   930→
+   931→  // ── Desktop Layout (3-Column Resizable) ───────────────────────────────────
+   932→  return (
+   933→    <div className="flex flex-col h-[calc(100vh-120px)] p-3 gap-0">
+   934→      {/* Desktop: 3-panel resizable */}
+   935→      <PanelGroup direction="horizontal" className="flex-1">
+   936→        {/* LEFT: Essay List */}
+   937→        <Panel defaultSize={25} minSize={18} maxSize={35}>
+   938→          <div className="h-full border border-slate-200 rounded-lg bg-white overflow-hidden">
+   939→            <EssaySidebar
+   940→              essays={essays} selectedId={selectedId} onSelect={handleSelect}
+   941→              search={search} setSearch={setSearch} statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+   942→              mobileTab=""
+   943→            />
+   944→          </div>
+   945→        </Panel>
+   946→
+   947→        <ResizeHandle direction="vertical" />
+   948→
+   949→        {/* MIDDLE: PDF Viewer */}
+   950→        <Panel defaultSize={45} minSize={30}>
+   951→          <div className="h-full border border-slate-200 rounded-lg bg-white overflow-hidden">
+   952→            {selectedEssay ? (
+   953→              <PdfViewer
+   954→                essay={selectedEssay} zoom={zoom} setZoom={setZoom}
+   955→                currentPage={currentPage} setCurrentPage={setCurrentPage}
+   956→                isBlind={selectedEssay.blindEvaluation} onTextSelect={handleTextSelect}
+   957→                mobileTab=""
+   958→              />
+   959→            ) : (
+   960→              <EmptyState />
+   961→            )}
+   962→          </div>
+   963→        </Panel>
+   964→
+   965→        <ResizeHandle direction="vertical" />
+   966→
+   967→        {/* RIGHT: Evaluation Form */}
+   968→        <Panel defaultSize={30} minSize={22} maxSize={40}>
+   969→          <div className="h-full border border-slate-200 rounded-lg bg-white overflow-hidden">
+   970→            {selectedEssay ? (
+   971→              <EvaluationForm
+   972→                essay={selectedEssay} scores={scores} setScores={setScores}
+   973→                justification={justification} setJustification={setJustification}
+   974→                comments={comments} setComments={setComments}
+   975→                quotes={quotes} setQuotes={setQuotes}
+   976→                isSubmitted={isSubmitted}
+   977→                onSaveDraft={handleSaveDraft} onSubmit={handleSubmit}
+   978→                saving={saving} mobileTab=""
+   979→              />
+   980→            ) : (
+   981→              <div className="flex flex-col items-center justify-center h-full text-center px-8">
+   982→                <ClipboardList className="h-10 w-10 text-slate-300 mb-3" />
+   983→                <p className="text-sm font-medium text-slate-500">Evaluation Form</p>
+   984→                <p className="text-xs text-slate-400 mt-1">Select an essay to see the evaluation criteria</p>
+   985→              </div>
+   986→            )}
+   987→          </div>
+   988→        </Panel>
+   989→      </PanelGroup>
+   990→
+   991→      {/* Submit Confirmation Dialog */}
+   992→      <Dialog open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
+   993→        <DialogContent>
+   994→          <DialogHeader>
+   995→            <DialogTitle>Submit Evaluation</DialogTitle>
+   996→            <DialogDescription>
+   997→              Are you sure you want to submit your evaluation for <strong>{selectedEssay?.anonymousId}</strong>?
+   998→              This action cannot be undone.
+   999→            </DialogDescription>
+  1000→          </DialogHeader>
+  1001→          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+  1002→            <p className="text-sm text-amber-800">Please review your scores and justification carefully before submitting. Once submitted, the evaluation will be locked.</p>
+  1003→          </div>
+  1004→          <DialogFooter>
+  1005→            <Button variant="outline" onClick={() => setSubmitDialogOpen(false)}>Cancel</Button>
+  1006→            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleConfirmSubmit} disabled={saving}>
+  1007→              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+  1008→              Confirm Submit
+  1009→            </Button>
+  1010→          </DialogFooter>
+  1011→        </DialogContent>
+  1012→      </Dialog>
+  1013→    </div>
+  1014→  );
+  1015→}
+  1016→

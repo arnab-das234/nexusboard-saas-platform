@@ -1,0 +1,724 @@
+     1→import { PrismaClient } from '@prisma/client';
+     2→
+     3→const db = new PrismaClient();
+     4→
+     5→async function main() {
+     6→  console.log('🌱 Starting database seeding...\n');
+     7→
+     8→  // ============================================
+     9→  // 1. CREATE ROLES
+    10→  // ============================================
+    11→  console.log('📋 Creating roles...');
+    12→  const roleData = [
+    13→    { name: 'SUPER_ADMIN', description: 'Super Administrator with full system access' },
+    14→    { name: 'ADMIN', description: 'Administrator with management access' },
+    15→    { name: 'TEACHER', description: 'Teacher who can refer students' },
+    16→    { name: 'STUDENT', description: 'Student who participates in competitions' },
+    17→    { name: 'EXAMINER', description: 'Examiner who evaluates essays' },
+    18→  ];
+    19→
+    20→  const roles: Record<string, any> = {};
+    21→  for (const r of roleData) {
+    22→    roles[r.name] = await db.role.upsert({
+    23→      where: { name: r.name },
+    24→      update: {},
+    25→      create: r,
+    26→    });
+    27→    console.log(`  ✅ Role: ${r.name} (${roles[r.name].id})`);
+    28→  }
+    29→
+    30→  // ============================================
+    31→  // 2. CREATE SUPER ADMIN USER
+    32→  // ============================================
+    33→  console.log('\n👤 Creating super admin user...');
+    34→  const superAdmin = await db.user.upsert({
+    35→    where: { email: 'admin@essaycomp.com' },
+    36→    update: {},
+    37→    create: {
+    38→      email: 'admin@essaycomp.com',
+    39→      passwordHash: 'admin123',
+    40→      name: 'System Administrator',
+    41→      emailVerified: true,
+    42→      isActive: true,
+    43→    },
+    44→  });
+    45→  await db.userRole.upsert({
+    46→    where: { userId_roleId: { userId: superAdmin.id, roleId: roles.SUPER_ADMIN.id } },
+    47→    update: {},
+    48→    create: { userId: superAdmin.id, roleId: roles.SUPER_ADMIN.id },
+    49→  });
+    50→  console.log(`  ✅ Super Admin: ${superAdmin.email} (${superAdmin.id})`);
+    51→
+    52→  // ============================================
+    53→  // 3. CREATE REGULAR ADMIN USER
+    54→  // ============================================
+    55→  console.log('\n👤 Creating regular admin user...');
+    56→  const admin = await db.user.upsert({
+    57→    where: { email: 'ops@essaycomp.com' },
+    58→    update: {},
+    59→    create: {
+    60→      email: 'ops@essaycomp.com',
+    61→      passwordHash: 'admin123',
+    62→      name: 'Operations Admin',
+    63→      emailVerified: true,
+    64→      isActive: true,
+    65→    },
+    66→  });
+    67→  await db.userRole.upsert({
+    68→    where: { userId_roleId: { userId: admin.id, roleId: roles.ADMIN.id } },
+    69→    update: {},
+    70→    create: { userId: admin.id, roleId: roles.ADMIN.id },
+    71→  });
+    72→  console.log(`  ✅ Admin: ${admin.email} (${admin.id})`);
+    73→
+    74→  // ============================================
+    75→  // 4. CREATE TEACHER USERS WITH PROFILES
+    76→  // ============================================
+    77→  console.log('\n👩‍🏫 Creating teacher users...');
+    78→  const teacher1User = await db.user.upsert({
+    79→    where: { email: 'teacher@essaycomp.com' },
+    80→    update: {},
+    81→    create: {
+    82→      email: 'teacher@essaycomp.com',
+    83→      passwordHash: 'teacher123',
+    84→      name: 'Dr. Sharma',
+    85→      emailVerified: true,
+    86→      isActive: true,
+    87→    },
+    88→  });
+    89→  await db.userRole.upsert({
+    90→    where: { userId_roleId: { userId: teacher1User.id, roleId: roles.TEACHER.id } },
+    91→    update: {},
+    92→    create: { userId: teacher1User.id, roleId: roles.TEACHER.id },
+    93→  });
+    94→  const teacher1Profile = await db.teacherProfile.upsert({
+    95→    where: { userId: teacher1User.id },
+    96→    update: {},
+    97→    create: {
+    98→      userId: teacher1User.id,
+    99→      schoolName: 'Delhi Public School',
+   100→      designation: 'Senior Teacher',
+   101→    },
+   102→  });
+   103→  console.log(`  ✅ Teacher 1: ${teacher1User.email} (${teacher1User.id}) | Profile: ${teacher1Profile.id}`);
+   104→
+   105→  const teacher2User = await db.user.upsert({
+   106→    where: { email: 'teacher2@essaycomp.com' },
+   107→    update: {},
+   108→    create: {
+   109→      email: 'teacher2@essaycomp.com',
+   110→      passwordHash: 'teacher123',
+   111→      name: "Ms. Gupta",
+   112→      emailVerified: true,
+   113→      isActive: true,
+   114→    },
+   115→  });
+   116→  await db.userRole.upsert({
+   117→    where: { userId_roleId: { userId: teacher2User.id, roleId: roles.TEACHER.id } },
+   118→    update: {},
+   119→    create: { userId: teacher2User.id, roleId: roles.TEACHER.id },
+   120→  });
+   121→  const teacher2Profile = await db.teacherProfile.upsert({
+   122→    where: { userId: teacher2User.id },
+   123→    update: {},
+   124→    create: {
+   125→      userId: teacher2User.id,
+   126→      schoolName: "St. Mary's School",
+   127→      designation: 'English Teacher',
+   128→    },
+   129→  });
+   130→  console.log(`  ✅ Teacher 2: ${teacher2User.email} (${teacher2User.id}) | Profile: ${teacher2Profile.id}`);
+   131→
+   132→  // ============================================
+   133→  // 5. CREATE STUDENT USERS WITH PROFILES
+   134→  // ============================================
+   135→  console.log('\n👨‍🎓 Creating student users...');
+   136→  const studentData = [
+   137→    {
+   138→      email: 'student1@essaycomp.com', password: 'student123', name: 'Arjun Patel',
+   139→      dob: new Date('2012-03-15'), schoolName: 'Delhi Public School', classGrade: '7',
+   140→      guardianName: 'Rajesh Patel', guardianRelation: 'Father', referredByTeacherId: undefined as string | undefined,
+   141→    },
+   142→    {
+   143→      email: 'student2@essaycomp.com', password: 'student123', name: 'Priya Sharma',
+   144→      dob: new Date('2011-07-22'), schoolName: 'Delhi Public School', classGrade: '8',
+   145→      guardianName: undefined, guardianRelation: undefined, referredByTeacherId: teacher1Profile.id,
+   146→    },
+   147→    {
+   148→      email: 'student3@essaycomp.com', password: 'student123', name: 'Rahul Kumar',
+   149→      dob: new Date('2010-01-10'), schoolName: "St. Mary's School", classGrade: '9',
+   150→      guardianName: undefined, guardianRelation: undefined, referredByTeacherId: undefined,
+   151→    },
+   152→    {
+   153→      email: 'student4@essaycomp.com', password: 'student123', name: 'Ananya Singh',
+   154→      dob: new Date('2009-11-05'), schoolName: "St. Mary's School", classGrade: '10',
+   155→      guardianName: undefined, guardianRelation: undefined, referredByTeacherId: teacher2Profile.id,
+   156→    },
+   157→    {
+   158→      email: 'student5@essaycomp.com', password: 'student123', name: 'Vikram Reddy',
+   159→      dob: new Date('2008-06-18'), schoolName: 'KV Hebbal', classGrade: '11',
+   160→      guardianName: undefined, guardianRelation: undefined, referredByTeacherId: undefined,
+   161→    },
+   162→    {
+   163→      email: 'student6@essaycomp.com', password: 'student123', name: 'Meera Nair',
+   164→      dob: new Date('2007-09-30'), schoolName: 'KV Hebbal', classGrade: '12',
+   165→      guardianName: undefined, guardianRelation: undefined, referredByTeacherId: teacher1Profile.id,
+   166→    },
+   167→  ];
+   168→
+   169→  const studentProfiles: any[] = [];
+   170→  for (const s of studentData) {
+   171→    const user = await db.user.upsert({
+   172→      where: { email: s.email },
+   173→      update: {},
+   174→      create: {
+   175→        email: s.email,
+   176→        passwordHash: s.password,
+   177→        name: s.name,
+   178→        emailVerified: true,
+   179→        isActive: true,
+   180→      },
+   181→    });
+   182→    await db.userRole.upsert({
+   183→      where: { userId_roleId: { userId: user.id, roleId: roles.STUDENT.id } },
+   184→      update: {},
+   185→      create: { userId: user.id, roleId: roles.STUDENT.id },
+   186→    });
+   187→    const profile = await db.studentProfile.upsert({
+   188→      where: { userId: user.id },
+   189→      update: {},
+   190→      create: {
+   191→        userId: user.id,
+   192→        dateOfBirth: s.dob,
+   193→        schoolName: s.schoolName,
+   194→        classGrade: s.classGrade,
+   195→        guardianName: s.guardianName ?? null,
+   196→        guardianRelation: s.guardianRelation ?? null,
+   197→        referredByTeacherId: s.referredByTeacherId ?? null,
+   198→      },
+   199→    });
+   200→    studentProfiles.push(profile);
+   201→    console.log(`  ✅ Student: ${s.email} (${user.id}) | Profile: ${profile.id}`);
+   202→  }
+   203→
+   204→  // ============================================
+   205→  // 6. CREATE EXAMINER USERS WITH PROFILES
+   206→  // ============================================
+   207→  console.log('\n📝 Creating examiner users...');
+   208→  const examinerData = [
+   209→    { email: 'examiner1@essaycomp.com', password: 'examiner123', name: 'Prof. Verma', specialization: 'English Literature', qualification: 'Ph.D' },
+   210→    { email: 'examiner2@essaycomp.com', password: 'examiner123', name: 'Dr. Iyer', specialization: 'Creative Writing', qualification: 'M.Phil' },
+   211→    { email: 'examiner3@essaycomp.com', password: 'examiner123', name: 'Ms. Das', specialization: 'Linguistics', qualification: 'Ph.D' },
+   212→  ];
+   213→
+   214→  const examinerProfiles: any[] = [];
+   215→  for (const e of examinerData) {
+   216→    const user = await db.user.upsert({
+   217→      where: { email: e.email },
+   218→      update: {},
+   219→      create: {
+   220→        email: e.email,
+   221→        passwordHash: e.password,
+   222→        name: e.name,
+   223→        emailVerified: true,
+   224→        isActive: true,
+   225→      },
+   226→    });
+   227→    await db.userRole.upsert({
+   228→      where: { userId_roleId: { userId: user.id, roleId: roles.EXAMINER.id } },
+   229→      update: {},
+   230→      create: { userId: user.id, roleId: roles.EXAMINER.id },
+   231→    });
+   232→    const profile = await db.examinerProfile.upsert({
+   233→      where: { userId: user.id },
+   234→      update: {},
+   235→      create: {
+   236→        userId: user.id,
+   237→        specialization: e.specialization,
+   238→        qualification: e.qualification,
+   239→        isActive: true,
+   240→      },
+   241→    });
+   242→    examinerProfiles.push(profile);
+   243→    console.log(`  ✅ Examiner: ${e.email} (${user.id}) | Profile: ${profile.id}`);
+   244→  }
+   245→
+   246→  // ============================================
+   247→  // 7. CREATE COMPETITION
+   248→  // ============================================
+   249→  console.log('\n🏆 Creating competition...');
+   250→  const competition = await db.competition.create({
+   251→    data: {
+   252→      name: 'National Essay Writing Competition 2025',
+   253→      academicYear: '2024-2025',
+   254→      registrationOpenDate: new Date('2025-01-01'),
+   255→      registrationCloseDate: new Date('2025-03-31'),
+   256→      submissionOpenDate: new Date('2025-04-01'),
+   257→      submissionCloseDate: new Date('2025-04-30'),
+   258→      competitionDate: new Date('2025-04-15'),
+   259→      resultDeclarationDate: new Date('2025-06-01'),
+   260→      minAge: 10,
+   261→      maxAge: 18,
+   262→      ageCalculationDate: new Date('2025-04-01'),
+   263→      registrationFee: 100,
+   264→      status: 'REGISTRATION_OPEN',
+   265→      description: 'Annual national-level essay writing competition for school students across India.',
+   266→      rules: '1. Essays must be original and unpublished. 2. Word limit: 1000-2000 words. 3. Only individual entries allowed. 4. Decision of judges is final.',
+   267→    },
+   268→  });
+   269→  console.log(`  ✅ Competition: ${competition.name} (${competition.id})`);
+   270→
+   271→  // ============================================
+   272→  // 8. CREATE COMPETITION CATEGORIES
+   273→  // ============================================
+   274→  console.log('\n📂 Creating competition categories...');
+   275→  const categoryData = [
+   276→    { name: 'Group A', minAge: 10, maxAge: 12, description: 'Age group 10-12 years' },
+   277→    { name: 'Group B', minAge: 13, maxAge: 15, description: 'Age group 13-15 years' },
+   278→    { name: 'Group C', minAge: 16, maxAge: 18, description: 'Age group 16-18 years' },
+   279→  ];
+   280→
+   281→  const categories: any[] = [];
+   282→  for (const c of categoryData) {
+   283→    const category = await db.competitionCategory.create({
+   284→      data: {
+   285→        competitionId: competition.id,
+   286→        name: c.name,
+   287→        minAge: c.minAge,
+   288→        maxAge: c.maxAge,
+   289→        description: c.description,
+   290→      },
+   291→    });
+   292→    categories.push(category);
+   293→    console.log(`  ✅ Category: ${c.name} (${category.id})`);
+   294→  }
+   295→
+   296→  // ============================================
+   297→  // 9. CREATE EVALUATION CRITERIA
+   298→  // ============================================
+   299→  console.log('\n📊 Creating evaluation criteria...');
+   300→  const criteriaData = [
+   301→    { name: 'Content', maxMarks: 25, description: 'Quality and depth of content', sortOrder: 1 },
+   302→    { name: 'Relevance', maxMarks: 15, description: 'Relevance to the topic', sortOrder: 2 },
+   303→    { name: 'Originality', maxMarks: 20, description: 'Originality of thought and expression', sortOrder: 3 },
+   304→    { name: 'Language & Grammar', maxMarks: 15, description: 'Language proficiency and grammatical accuracy', sortOrder: 4 },
+   305→    { name: 'Structure & Organization', maxMarks: 15, description: 'Logical structure and organization of ideas', sortOrder: 5 },
+   306→    { name: 'Presentation', maxMarks: 10, description: 'Overall presentation and formatting', sortOrder: 6 },
+   307→  ];
+   308→
+   309→  const criteria: any[] = [];
+   310→  for (const c of criteriaData) {
+   311→    const criterion = await db.evaluationCriterion.create({
+   312→      data: {
+   313→        competitionId: competition.id,
+   314→        name: c.name,
+   315→        maxMarks: c.maxMarks,
+   316→        description: c.description,
+   317→        sortOrder: c.sortOrder,
+   318→      },
+   319→    });
+   320→    criteria.push(criterion);
+   321→    console.log(`  ✅ Criterion: ${c.name} (${criterion.id}) - ${c.maxMarks} marks`);
+   322→  }
+   323→
+   324→  // ============================================
+   325→  // 10. CREATE SCORING CONFIG
+   326→  // ============================================
+   327→  console.log('\n⚙️ Creating scoring config...');
+   328→  const scoringConfig = await db.scoringConfig.create({
+   329→    data: {
+   330→      competitionId: competition.id,
+   331→      examinerCount: 3,
+   332→      maxMarks: 100,
+   333→      minMarks: 0,
+   334→      averagingMethod: 'MEAN',
+   335→      outlierHandling: false,
+   336→      blindEvaluation: true,
+   337→    },
+   338→  });
+   339→  console.log(`  ✅ ScoringConfig: ${scoringConfig.id} (examiners: 3, maxMarks: 100, method: MEAN, blind: true)`);
+   340→
+   341→  // ============================================
+   342→  // 11. CREATE REGISTRATIONS (students 1-4)
+   343→  // ============================================
+   344→  // Category assignment based on age at 2025-04-01:
+   345→  // student1 (Arjun, DOB 2012-03-15): age ~12 → Group A (10-12)
+   346→  // student2 (Priya, DOB 2011-07-22): age ~13 → Group B (13-15)
+   347→  // student3 (Rahul, DOB 2010-01-10): age ~15 → Group B (13-15)
+   348→  // student4 (Ananya, DOB 2009-11-05): age ~15 → Group B (13-15)
+   349→  console.log('\n📝 Creating registrations...');
+   350→
+   351→  const registrationData = [
+   352→    { studentIdx: 0, categoryIdx: 0, status: 'CONFIRMED', regNo: 'REG-2025-0001' }, // student1 → Group A
+   353→    { studentIdx: 1, categoryIdx: 1, status: 'PAID', regNo: 'REG-2025-0002' },       // student2 → Group B
+   354→    { studentIdx: 2, categoryIdx: 1, status: 'PENDING', regNo: 'REG-2025-0003' },   // student3 → Group B
+   355→    { studentIdx: 3, categoryIdx: 1, status: 'PAYMENT_PENDING', regNo: 'REG-2025-0004' }, // student4 → Group B
+   356→  ];
+   357→
+   358→  const registrations: any[] = [];
+   359→  for (const r of registrationData) {
+   360→    const registration = await db.registration.create({
+   361→      data: {
+   362→        registrationNo: r.regNo,
+   363→        studentId: studentProfiles[r.studentIdx].id,
+   364→        competitionId: competition.id,
+   365→        categoryId: categories[r.categoryIdx].id,
+   366→        status: r.status,
+   367→        confirmedAt: (r.status === 'CONFIRMED' || r.status === 'PAID') ? new Date() : null,
+   368→      },
+   369→    });
+   370→    registrations.push(registration);
+   371→    console.log(`  ✅ Registration: ${r.regNo} (${registration.id}) - ${r.status}`);
+   372→  }
+   373→
+   374→  // ============================================
+   375→  // 12. CREATE PAYMENTS (for confirmed/paid registrations)
+   376→  // ============================================
+   377→  console.log('\n💰 Creating payments...');
+   378→
+   379→  const payment1 = await db.payment.create({
+   380→    data: {
+   381→      registrationId: registrations[0].id, // student1 - CONFIRMED
+   382→      razorpayOrderId: 'order_seed_001',
+   383→      razorpayPaymentId: 'pay_seed_001',
+   384→      razorpaySignature: 'sig_seed_001',
+   385→      amount: 100,
+   386→      currency: 'INR',
+   387→      status: 'CAPTURED',
+   388→      verifiedAt: new Date(),
+   389→      createdById: superAdmin.id,
+   390→    },
+   391→  });
+   392→  console.log(`  ✅ Payment 1: ${payment1.id} (${payment1.razorpayOrderId}) - ₹${payment1.amount} ${payment1.status}`);
+   393→
+   394→  const payment2 = await db.payment.create({
+   395→    data: {
+   396→      registrationId: registrations[1].id, // student2 - PAID
+   397→      razorpayOrderId: 'order_seed_002',
+   398→      razorpayPaymentId: 'pay_seed_002',
+   399→      razorpaySignature: 'sig_seed_002',
+   400→      amount: 100,
+   401→      currency: 'INR',
+   402→      status: 'CAPTURED',
+   403→      verifiedAt: new Date(),
+   404→      createdById: superAdmin.id,
+   405→    },
+   406→  });
+   407→  console.log(`  ✅ Payment 2: ${payment2.id} (${payment2.razorpayOrderId}) - ₹${payment2.amount} ${payment2.status}`);
+   408→
+   409→  // ============================================
+   410→  // 13. CREATE ESSAY SUBMISSIONS (for confirmed registrations)
+   411→  // ============================================
+   412→  console.log('\n📄 Creating essay submissions...');
+   413→
+   414→  const essay1 = await db.essaySubmission.create({
+   415→    data: {
+   416→      registrationId: registrations[0].id, // student1's registration
+   417→      studentId: studentProfiles[0].id,
+   418→      competitionId: competition.id,
+   419→      fileName: 'arjun_patel_essay.pdf',
+   420→      originalName: 'My Vision for India.pdf',
+   421→      fileSize: 245760,
+   422→      mimeType: 'application/pdf',
+   423→      status: 'SUBMITTED',
+   424→      submittedAt: new Date(),
+   425→    },
+   426→  });
+   427→  console.log(`  ✅ Essay 1: ${essay1.id} by Arjun Patel - ${essay1.status}`);
+   428→
+   429→  const essay2 = await db.essaySubmission.create({
+   430→    data: {
+   431→      registrationId: registrations[1].id, // student2's registration
+   432→      studentId: studentProfiles[1].id,
+   433→      competitionId: competition.id,
+   434→      fileName: 'priya_sharma_essay.pdf',
+   435→      originalName: 'The Power of Education.pdf',
+   436→      fileSize: 312320,
+   437→      mimeType: 'application/pdf',
+   438→      status: 'VALID',
+   439→      submittedAt: new Date(),
+   440→      validatedAt: new Date(),
+   441→      validationNotes: 'Essay validated successfully. Meets all criteria.',
+   442→    },
+   443→  });
+   444→  console.log(`  ✅ Essay 2: ${essay2.id} by Priya Sharma - ${essay2.status}`);
+   445→
+   446→  // ============================================
+   447→  // 14. CREATE EXAMINER ASSIGNMENTS (3 examiners per essay)
+   448→  // ============================================
+   449→  console.log('\n👤 Creating examiner assignments...');
+   450→
+   451→  const assignmentResults: any[] = [];
+   452→  for (const essay of [essay1, essay2]) {
+   453→    for (const examiner of examinerProfiles) {
+   454→      const assignment = await db.examinerAssignment.create({
+   455→        data: {
+   456→          essayId: essay.id,
+   457→          examinerId: examiner.id,
+   458→          assignedBy: superAdmin.id,
+   459→          status: 'ASSIGNED',
+   460→          deadline: new Date('2025-05-15'),
+   461→        },
+   462→      });
+   463→      assignmentResults.push(assignment);
+   464→      const examinerName = examinerData.find(e => e.email.includes(examiner.id)) ? '' : '';
+   465→      console.log(`  ✅ Assignment: ${assignment.id} - Essay ${essay.id.substring(0, 6)}... → Examiner ${examiner.id.substring(0, 6)}...`);
+   466→    }
+   467→  }
+   468→
+   469→  // ============================================
+   470→  // 15. CREATE SYSTEM SETTINGS
+   471→  // ============================================
+   472→  console.log('\n⚙️ Creating system settings...');
+   473→
+   474→  const settingsData = [
+   475→    // GENERAL
+   476→    { key: 'org_name', value: 'EssayComp', category: 'GENERAL', type: 'STRING' },
+   477→    { key: 'org_email', value: 'info@essaycomp.com', category: 'GENERAL', type: 'STRING' },
+   478→    { key: 'org_phone', value: '+91-XXXX-XXXXXX', category: 'GENERAL', type: 'STRING' },
+   479→    { key: 'timezone', value: 'Asia/Kolkata', category: 'GENERAL', type: 'STRING' },
+   480→    // COMPETITION
+   481→    { key: 'default_fee', value: '100', category: 'COMPETITION', type: 'NUMBER' },
+   482→    { key: 'max_essay_size_mb', value: '5', category: 'COMPETITION', type: 'NUMBER' },
+   483→    // PAYMENT
+   484→    { key: 'currency', value: 'INR', category: 'PAYMENT', type: 'STRING' },
+   485→    { key: 'payment_mode', value: 'TEST', category: 'PAYMENT', type: 'STRING' },
+   486→    // EMAIL
+   487→    { key: 'sender_name', value: 'EssayComp', category: 'EMAIL', type: 'STRING' },
+   488→    { key: 'sender_email', value: 'noreply@essaycomp.com', category: 'EMAIL', type: 'STRING' },
+   489→    // EXAMINATION
+   490→    { key: 'default_examiner_count', value: '3', category: 'EXAMINATION', type: 'NUMBER' },
+   491→    { key: 'default_averaging', value: 'MEAN', category: 'EXAMINATION', type: 'STRING' },
+   492→    { key: 'blind_evaluation_default', value: 'true', category: 'EXAMINATION', type: 'BOOLEAN' },
+   493→  ];
+   494→
+   495→  const settings: any[] = [];
+   496→  for (const s of settingsData) {
+   497→    const setting = await db.systemSetting.upsert({
+   498→      where: { key: s.key },
+   499→      update: { value: s.value, category: s.category, type: s.type },
+   500→      create: s,
+   501→    });
+   502→    settings.push(setting);
+   503→    console.log(`  ✅ Setting: ${s.key} = ${s.value} (${s.category})`);
+   504→  }
+   505→
+   506→  // ============================================
+   507→  // 16. CREATE ANNOUNCEMENTS AND NOTIFICATIONS
+   508→  // ============================================
+   509→  console.log('\n📢 Creating announcements...');
+   510→
+   511→  const announcement1 = await db.announcement.create({
+   512→    data: {
+   513→      title: 'Registration Now Open!',
+   514→      message: 'Registrations for the National Essay Writing Competition 2025 are now open. Please register before March 31, 2025.',
+   515→      audience: 'ALL',
+   516→      competitionId: competition.id,
+   517→      status: 'PUBLISHED',
+   518→      createdBy: superAdmin.id,
+   519→    },
+   520→  });
+   521→  console.log(`  ✅ Announcement 1: ${announcement1.id} - "${announcement1.title}"`);
+   522→
+   523→  const announcement2 = await db.announcement.create({
+   524→    data: {
+   525→      title: 'Essay Topics Released',
+   526→      message: 'The essay topics for the National Essay Writing Competition 2025 have been released. Please check the competition page for details.',
+   527→      audience: 'STUDENT',
+   528→      competitionId: competition.id,
+   529→      status: 'PUBLISHED',
+   530→      createdBy: admin.id,
+   531→    },
+   532→  });
+   533→  console.log(`  ✅ Announcement 2: ${announcement2.id} - "${announcement2.title}"`);
+   534→
+   535→  const announcement3 = await db.announcement.create({
+   536→    data: {
+   537→      title: 'Important: Submission Guidelines',
+   538→      message: 'All participants must submit their essays in PDF format. The file size must not exceed 5MB. Submissions open on April 1, 2025.',
+   539→      audience: 'STUDENT',
+   540→      competitionId: competition.id,
+   541→      status: 'PUBLISHED',
+   542→      createdBy: admin.id,
+   543→    },
+   544→  });
+   545→  console.log(`  ✅ Announcement 3: ${announcement3.id} - "${announcement3.title}"`);
+   546→
+   547→  console.log('\n🔔 Creating notifications...');
+   548→
+   549→  const notification1 = await db.notification.create({
+   550→    data: {
+   551→      userId: superAdmin.id,
+   552→      title: 'System Initialized',
+   553→      message: 'The EssayComp system has been successfully initialized with seed data.',
+   554→      type: 'INFO',
+   555→    },
+   556→  });
+   557→  console.log(`  ✅ Notification 1: ${notification1.id} - "${notification1.title}" → Super Admin`);
+   558→
+   559→  const notification2 = await db.notification.create({
+   560→    data: {
+   561→      userId: admin.id,
+   562→      title: 'Competition Created',
+   563→      message: 'National Essay Writing Competition 2025 has been created and is now open for registration.',
+   564→      type: 'INFO',
+   565→    },
+   566→  });
+   567→  console.log(`  ✅ Notification 2: ${notification2.id} - "${notification2.title}" → Admin`);
+   568→
+   569→  const notification3 = await db.notification.create({
+   570→    data: {
+   571→      userId: studentProfiles[0].userId,
+   572→      title: 'Registration Confirmed',
+   573→      message: 'Your registration for National Essay Writing Competition 2025 has been confirmed. You can now submit your essay.',
+   574→      type: 'SUCCESS',
+   575→    },
+   576→  });
+   577→  console.log(`  ✅ Notification 3: ${notification3.id} - "${notification3.title}" → Arjun Patel`);
+   578→
+   579→  const notification4 = await db.notification.create({
+   580→    data: {
+   581→      userId: studentProfiles[1].userId,
+   582→      title: 'Payment Received',
+   583→      message: 'Your payment of ₹100 for National Essay Writing Competition 2025 has been received successfully.',
+   584→      type: 'SUCCESS',
+   585→    },
+   586→  });
+   587→  console.log(`  ✅ Notification 4: ${notification4.id} - "${notification4.title}" → Priya Sharma`);
+   588→
+   589→  // Create user notifications (linking announcements to users)
+   590→  console.log('\n📬 Creating user notifications...');
+   591→
+   592→  const allStudentUsers = studentProfiles.map(sp => sp.userId);
+   593→  for (const userId of allStudentUsers) {
+   594→    await db.userNotification.create({
+   595→      data: {
+   596→        userId,
+   597→        announcementId: announcement1.id,
+   598→        isRead: false,
+   599→      },
+   600→    });
+   601→  }
+   602→  console.log(`  ✅ UserNotification: Announcement 1 → ${allStudentUsers.length} students`);
+   603→
+   604→  for (const userId of allStudentUsers) {
+   605→    await db.userNotification.create({
+   606→      data: {
+   607→        userId,
+   608→        announcementId: announcement2.id,
+   609→        isRead: false,
+   610→      },
+   611→    });
+   612→  }
+   613→  console.log(`  ✅ UserNotification: Announcement 2 → ${allStudentUsers.length} students`);
+   614→
+   615→  // ============================================
+   616→  // SUMMARY
+   617→  // ============================================
+   618→  console.log('\n' + '='.repeat(60));
+   619→  console.log('✅ SEEDING COMPLETE - SUMMARY OF CREATED RECORDS');
+   620→  console.log('='.repeat(60));
+   621→
+   622→  console.log('\n📋 ROLES (5):');
+   623→  for (const r of roleData) {
+   624→    console.log(`  ${roles[r.name].id} | ${r.name}`);
+   625→  }
+   626→
+   627→  console.log('\n👤 USERS (13):');
+   628→  console.log(`  ${superAdmin.id} | admin@essaycomp.com | System Administrator [SUPER_ADMIN]`);
+   629→  console.log(`  ${admin.id} | ops@essaycomp.com | Operations Admin [ADMIN]`);
+   630→  console.log(`  ${teacher1User.id} | teacher@essaycomp.com | Dr. Sharma [TEACHER]`);
+   631→  console.log(`  ${teacher2User.id} | teacher2@essaycomp.com | Ms. Gupta [TEACHER]`);
+   632→  for (let i = 0; i < studentData.length; i++) {
+   633→    const s = studentData[i];
+   634→    const sp = studentProfiles[i];
+   635→    console.log(`  ${sp.userId} | ${s.email} | ${s.name} [STUDENT] (Profile: ${sp.id})`);
+   636→  }
+   637→  for (let i = 0; i < examinerData.length; i++) {
+   638→    const e = examinerData[i];
+   639→    const ep = examinerProfiles[i];
+   640→    console.log(`  ${ep.userId} | ${e.email} | ${e.name} [EXAMINER] (Profile: ${ep.id})`);
+   641→  }
+   642→
+   643→  console.log('\n👨‍🏫 TEACHER PROFILES (2):');
+   644→  console.log(`  ${teacher1Profile.id} | Dr. Sharma | Delhi Public School | Senior Teacher`);
+   645→  console.log(`  ${teacher2Profile.id} | Ms. Gupta | St. Mary's School | English Teacher`);
+   646→
+   647→  console.log('\n👨‍🎓 STUDENT PROFILES (6):');
+   648→  for (let i = 0; i < studentData.length; i++) {
+   649→    const s = studentData[i];
+   650→    const sp = studentProfiles[i];
+   651→    console.log(`  ${sp.id} | ${s.name} | DOB: ${s.dob.toISOString().split('T')[0]} | ${s.schoolName} | Class ${s.classGrade}${s.referredByTeacherId ? ' (referred)' : ''}`);
+   652→  }
+   653→
+   654→  console.log('\n📝 EXAMINER PROFILES (3):');
+   655→  for (let i = 0; i < examinerData.length; i++) {
+   656→    const e = examinerData[i];
+   657→    const ep = examinerProfiles[i];
+   658→    console.log(`  ${ep.id} | ${e.name} | ${e.specialization} | ${e.qualification}`);
+   659→  }
+   660→
+   661→  console.log('\n🏆 COMPETITION (1):');
+   662→  console.log(`  ${competition.id} | ${competition.name} | ${competition.status}`);
+   663→
+   664→  console.log('\n📂 CATEGORIES (3):');
+   665→  for (const c of categories) {
+   666→    console.log(`  ${c.id} | ${c.name} | Age ${c.minAge}-${c.maxAge}`);
+   667→  }
+   668→
+   669→  console.log('\n📊 EVALUATION CRITERIA (6):');
+   670→  for (const c of criteria) {
+   671→    console.log(`  ${c.id} | ${c.name} | ${c.maxMarks} marks`);
+   672→  }
+   673→
+   674→  console.log('\n⚙️ SCORING CONFIG (1):');
+   675→  console.log(`  ${scoringConfig.id} | Examiners: ${scoringConfig.examinerCount} | Max: ${scoringConfig.maxMarks} | Method: ${scoringConfig.averagingMethod} | Blind: ${scoringConfig.blindEvaluation}`);
+   676→
+   677→  console.log('\n📝 REGISTRATIONS (4):');
+   678→  for (const r of registrations) {
+   679→    console.log(`  ${r.id} | ${r.registrationNo} | ${r.status}`);
+   680→  }
+   681→
+   682→  console.log('\n💰 PAYMENTS (2):');
+   683→  console.log(`  ${payment1.id} | ${payment1.razorpayOrderId} | ₹${payment1.amount} | ${payment1.status}`);
+   684→  console.log(`  ${payment2.id} | ${payment2.razorpayOrderId} | ₹${payment2.amount} | ${payment2.status}`);
+   685→
+   686→  console.log('\n📄 ESSAY SUBMISSIONS (2):');
+   687→  console.log(`  ${essay1.id} | Arjun Patel | ${essay1.status}`);
+   688→  console.log(`  ${essay2.id} | Priya Sharma | ${essay2.status}`);
+   689→
+   690→  console.log(`\n👤 EXAMINER ASSIGNMENTS (${assignmentResults.length}):`);
+   691→  for (const a of assignmentResults) {
+   692→    console.log(`  ${a.id} | Essay: ${a.essayId.substring(0, 8)}... | Examiner: ${a.examinerId.substring(0, 8)}... | ${a.status}`);
+   693→  }
+   694→
+   695→  console.log(`\n⚙️ SYSTEM SETTINGS (${settings.length}):`);
+   696→  for (const s of settings) {
+   697→    console.log(`  ${s.id} | ${s.key} = ${s.value} [${s.category}]`);
+   698→  }
+   699→
+   700→  console.log('\n📢 ANNOUNCEMENTS (3):');
+   701→  console.log(`  ${announcement1.id} | ${announcement1.title} | ${announcement1.audience} | ${announcement1.status}`);
+   702→  console.log(`  ${announcement2.id} | ${announcement2.title} | ${announcement2.audience} | ${announcement2.status}`);
+   703→  console.log(`  ${announcement3.id} | ${announcement3.title} | ${announcement3.audience} | ${announcement3.status}`);
+   704→
+   705→  console.log('\n🔔 NOTIFICATIONS (4):');
+   706→  console.log(`  ${notification1.id} | ${notification1.title} → Super Admin`);
+   707→  console.log(`  ${notification2.id} | ${notification2.title} → Admin`);
+   708→  console.log(`  ${notification3.id} | ${notification3.title} → Arjun Patel`);
+   709→  console.log(`  ${notification4.id} | ${notification4.title} → Priya Sharma`);
+   710→
+   711→  console.log('\n' + '='.repeat(60));
+   712→  console.log('🌱 All seed data has been successfully created!');
+   713→  console.log('='.repeat(60));
+   714→}
+   715→
+   716→main()
+   717→  .catch((e) => {
+   718→    console.error('❌ Seeding failed:', e);
+   719→    process.exit(1);
+   720→  })
+   721→  .finally(async () => {
+   722→    await db.$disconnect();
+   723→  });
+   724→

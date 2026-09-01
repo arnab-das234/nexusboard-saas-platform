@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Bell, BellOff, CheckCheck, Trash2, ChevronDown, ChevronUp,
-  Info, AlertTriangle, CheckCircle2, XCircle, FileText, Clock,
+  Bell, BellOff, CheckCheck, ChevronDown, ChevronUp,
+  Info, AlertTriangle, CheckCircle2, XCircle, Loader2, RefreshCw,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAppStore } from '@/lib/store';
+import { useAuthStore, useAppStore } from '@/lib/store';
 import { toast } from 'sonner';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -22,60 +22,6 @@ interface Notification {
   isRead: boolean;
   createdAt: string;
 }
-
-// ── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1', title: 'New Essays Assigned',
-    message: 'You have been assigned 5 new essays for evaluation in the National Essay Competition 2025. Please complete your evaluations by July 18, 2025.',
-    type: 'INFO', isRead: false, createdAt: '2025-07-08T10:00:00Z',
-  },
-  {
-    id: '2', title: 'Deadline Approaching',
-    message: 'The evaluation deadline for Essay-2024-060 (State Level Essay Writing) is tomorrow. Please ensure you submit your evaluation on time.',
-    type: 'WARNING', isRead: false, createdAt: '2025-07-08T09:00:00Z',
-  },
-  {
-    id: '3', title: 'Evaluation Submitted Successfully',
-    message: 'Your evaluation for Essay-2024-018 has been submitted successfully. The score has been recorded and is now part of the final results.',
-    type: 'SUCCESS', isRead: true, createdAt: '2025-07-07T16:30:00Z',
-  },
-  {
-    id: '4', title: 'New Assignment: Inter-School Challenge',
-    message: 'You have been assigned 3 essays from the Inter-School Essay Challenge. Deadline: July 14, 2025. Blind evaluation mode is enabled.',
-    type: 'INFO', isRead: true, createdAt: '2025-07-06T09:00:00Z',
-  },
-  {
-    id: '5', title: 'Evaluation Criteria Updated',
-    message: 'The evaluation criteria for the State Level Essay Writing competition have been updated. Please review the new criteria before proceeding with evaluations.',
-    type: 'WARNING', isRead: true, createdAt: '2025-07-05T14:00:00Z',
-  },
-  {
-    id: '6', title: 'Draft Auto-Saved',
-    message: 'Your draft evaluation for Essay-2024-039 has been auto-saved. You can continue editing from the evaluation workspace.',
-    type: 'SUCCESS', isRead: true, createdAt: '2025-07-05T11:30:00Z',
-  },
-  {
-    id: '7', title: 'System Maintenance',
-    message: 'EssayCompass will undergo scheduled maintenance on July 15, 2025 from 2:00 AM to 4:00 AM IST. Please save your work before this time.',
-    type: 'WARNING', isRead: false, createdAt: '2025-07-04T12:00:00Z',
-  },
-  {
-    id: '8', title: 'Welcome to the Evaluation Team',
-    message: 'Welcome! Your examiner account has been activated. You can now access the evaluation workspace and begin reviewing assigned essays.',
-    type: 'INFO', isRead: true, createdAt: '2025-06-28T10:00:00Z',
-  },
-  {
-    id: '9', title: 'Overdue Evaluation Warning',
-    message: 'Your evaluation for Essay-2024-015 is overdue. Please submit it as soon as possible. Continued delays may affect the result publication timeline.',
-    type: 'ERROR', isRead: false, createdAt: '2025-07-03T08:00:00Z',
-  },
-  {
-    id: '10', title: 'Evaluation Results Published',
-    message: 'The results for the Spring Essay Contest have been published. Your evaluations contributed to the final scores. Thank you for your work!',
-    type: 'SUCCESS', isRead: true, createdAt: '2025-06-25T16:00:00Z',
-  },
-];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string) {
@@ -116,6 +62,15 @@ function NotificationsSkeleton() {
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-9 w-36" />
       </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-20 rounded-xl" />
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-8 w-24" />
+        <Skeleton className="h-8 w-28" />
+      </div>
       {Array.from({ length: 5 }).map((_, i) => (
         <Card key={i}><CardContent className="p-4"><Skeleton className="h-16 w-full rounded" /></CardContent></Card>
       ))}
@@ -123,9 +78,27 @@ function NotificationsSkeleton() {
   );
 }
 
+// ── Error State ──────────────────────────────────────────────────────────────
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 px-6">
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 mb-4">
+          <AlertTriangle className="h-8 w-8 text-rose-500" />
+        </div>
+      </motion.div>
+      <h3 className="text-lg font-semibold text-slate-700">Failed to Load Notifications</h3>
+      <p className="text-sm text-slate-500 mt-1 max-w-md text-center">{message}</p>
+      <Button variant="outline" onClick={onRetry} className="mt-4 gap-2">
+        <RefreshCw className="h-4 w-4" /> Try Again
+      </Button>
+    </div>
+  );
+}
+
 // ── Notification Item ────────────────────────────────────────────────────────
-function NotificationItem({ n, onRead, onDelete }: {
-  n: Notification; onRead: (id: string) => void; onDelete: (id: string) => void;
+function NotificationItem({ n, onRead }: {
+  n: Notification; onRead: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -145,10 +118,15 @@ function NotificationItem({ n, onRead, onDelete }: {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 cursor-pointer" onClick={() => { setExpanded(!expanded); if (!n.isRead) onRead(n.id); }}>
+                <div
+                  className="min-w-0 cursor-pointer"
+                  onClick={() => { setExpanded(!expanded); if (!n.isRead) onRead(n.id); }}
+                >
                   <div className="flex items-center gap-2">
                     {!n.isRead && <div className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />}
-                    <p className={`text-sm truncate ${!n.isRead ? 'font-semibold text-slate-800' : 'font-medium text-slate-700'}`}>{n.title}</p>
+                    <p className={`text-sm truncate ${!n.isRead ? 'font-semibold text-slate-800' : 'font-medium text-slate-700'}`}>
+                      {n.title}
+                    </p>
                   </div>
                   <AnimatePresence>
                     {expanded && (
@@ -157,24 +135,20 @@ function NotificationItem({ n, onRead, onDelete }: {
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         className="text-sm text-slate-500 mt-1.5 overflow-hidden"
-                      >{n.message}</motion.p>
+                      >
+                        {n.message}
+                      </motion.p>
                     )}
                   </AnimatePresence>
                   <p className="text-xs text-slate-400 mt-1">{timeAgo(n.createdAt)}</p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => setExpanded(!expanded)} className="p-1 rounded hover:bg-slate-100 text-slate-400">
-                    {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </button>
-                  {!n.isRead && (
-                    <button onClick={() => onRead(n.id)} className="p-1 rounded hover:bg-emerald-50 text-slate-400 hover:text-emerald-600" title="Mark as read">
-                      <CheckCheck className="h-4 w-4" />
-                    </button>
-                  )}
-                  <button onClick={() => onDelete(n.id)} className="p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600" title="Delete">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="p-1 rounded hover:bg-slate-100 text-slate-400 transition-colors"
+                  aria-label={expanded ? 'Collapse' : 'Expand'}
+                >
+                  {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
               </div>
             </div>
           </div>
@@ -186,59 +160,94 @@ function NotificationItem({ n, onRead, onDelete }: {
 
 // ── Main View ────────────────────────────────────────────────────────────────
 export function ExaminerNotificationsView() {
+  const user = useAuthStore((s) => s.user);
+  const { setNotifications: setGlobalNotifications, markAllAsRead } = useAppStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  const { setNotifications: setGlobalNotifications, markAllAsRead } = useAppStore();
+  const [markingAll, setMarkingAll] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/api/seed?action=examiner-notifications');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data) { setNotifications(json.data); syncGlobal(json.data); setLoading(false); return; }
-        }
-      } catch { /* fall through */ }
-      setNotifications(MOCK_NOTIFICATIONS);
-      syncGlobal(MOCK_NOTIFICATIONS);
+  const userId = user?.id;
+
+  async function loadNotifications() {
+    if (!userId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/notifications?userId=${userId}&pageSize=50`);
+      if (!res.ok) throw new Error('Failed to fetch notifications');
+      const json = await res.json();
+      if (json.success) {
+        const notifs: Notification[] = (json.data || []).map((n: Record<string, unknown>) => ({
+          id: n.id as string,
+          title: n.title as string,
+          message: n.message as string,
+          type: (n.type as Notification['type']) || 'INFO',
+          isRead: n.isRead as boolean,
+          createdAt: n.createdAt as string,
+        }));
+        setNotifications(notifs);
+        syncGlobal(notifs);
+      } else {
+        throw new Error(json.error || 'Unknown error');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load notifications');
+    } finally {
       setLoading(false);
     }
-    load();
-  }, []);
-
-  function syncGlobal(notifs: Notification[]) {
-    setGlobalNotifications(notifs.map(n => ({ id: n.id, title: n.title, message: n.message, isRead: n.isRead, createdAt: n.createdAt })));
   }
 
-  function handleMarkRead(id: string) {
-    setNotifications(prev => {
-      const updated = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
+  useEffect(() => { loadNotifications(); }, [userId]);
+
+  function syncGlobal(notifs: Notification[]) {
+    setGlobalNotifications(notifs.map((n) => ({
+      id: n.id, title: n.title, message: n.message,
+      isRead: n.isRead, createdAt: n.createdAt,
+    })));
+  }
+
+  const handleMarkRead = useCallback(async (id: string) => {
+    if (!userId) return;
+    try {
+      await fetch('/api/notifications?action=mark-read', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, userId }),
+      });
+    } catch { /* optimistic update */ }
+    setNotifications((prev) => {
+      const updated = prev.map((n) => n.id === id ? { ...n, isRead: true } : n);
       syncGlobal(updated);
       return updated;
     });
     toast.success('Marked as read');
-  }
+  }, [userId]);
 
-  function handleMarkAllRead() {
-    const updated = notifications.map(n => ({ ...n, isRead: true }));
+  const handleMarkAllRead = useCallback(async () => {
+    if (!userId) return;
+    setMarkingAll(true);
+    try {
+      await fetch('/api/notifications?action=mark-all-read', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+    } catch { /* optimistic update */ }
+    const updated = notifications.map((n) => ({ ...n, isRead: true }));
     setNotifications(updated);
     syncGlobal(updated);
     markAllAsRead();
     toast.success('All notifications marked as read');
-  }
+    setMarkingAll(false);
+  }, [userId, notifications, markAllAsRead]);
 
-  function handleDelete(id: string) {
-    const updated = notifications.filter(n => n.id !== id);
-    setNotifications(updated);
-    syncGlobal(updated);
-    toast.success('Notification deleted');
-  }
-
-  const filtered = filter === 'unread' ? notifications.filter(n => !n.isRead) : notifications;
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const filtered = filter === 'unread' ? notifications.filter((n) => !n.isRead) : notifications;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   if (loading) return <NotificationsSkeleton />;
+  if (error) return <ErrorState message={error} onRetry={loadNotifications} />;
 
   return (
     <div className="space-y-6 p-6">
@@ -249,32 +258,43 @@ export function ExaminerNotificationsView() {
           <p className="text-sm text-slate-500">Evaluation assignments, deadlines, and system updates</p>
         </div>
         {unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={handleMarkAllRead} className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-            <CheckCheck className="h-4 w-4" /> Mark All Read
+          <Button
+            variant="outline" size="sm"
+            onClick={handleMarkAllRead}
+            disabled={markingAll}
+            className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+          >
+            {markingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCheck className="h-4 w-4" />}
+            Mark All Read
           </Button>
         )}
       </motion.div>
 
       {/* Summary cards */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
         <Card className="bg-teal-50/60 border-teal-100">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-100">
-              <FileText className="h-4 w-4 text-teal-600" />
+              <Info className="h-4 w-4 text-teal-600" />
             </div>
             <div>
-              <p className="text-lg font-bold text-slate-800">{notifications.filter(n => n.type === 'INFO').length}</p>
-              <p className="text-xs text-slate-500">Assignments</p>
+              <p className="text-lg font-bold text-slate-800">{notifications.filter((n) => n.type === 'INFO').length}</p>
+              <p className="text-xs text-slate-500">Information</p>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-amber-50/60 border-amber-100">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
-              <Clock className="h-4 w-4 text-amber-600" />
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
             </div>
             <div>
-              <p className="text-lg font-bold text-slate-800">{notifications.filter(n => n.type === 'WARNING').length}</p>
+              <p className="text-lg font-bold text-slate-800">{notifications.filter((n) => n.type === 'WARNING').length}</p>
               <p className="text-xs text-slate-500">Reminders</p>
             </div>
           </CardContent>
@@ -285,7 +305,7 @@ export function ExaminerNotificationsView() {
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
             </div>
             <div>
-              <p className="text-lg font-bold text-slate-800">{notifications.filter(n => n.type === 'SUCCESS').length}</p>
+              <p className="text-lg font-bold text-slate-800">{notifications.filter((n) => n.type === 'SUCCESS').length}</p>
               <p className="text-xs text-slate-500">Completed</p>
             </div>
           </CardContent>
@@ -296,7 +316,7 @@ export function ExaminerNotificationsView() {
               <XCircle className="h-4 w-4 text-rose-600" />
             </div>
             <div>
-              <p className="text-lg font-bold text-slate-800">{notifications.filter(n => n.type === 'ERROR').length}</p>
+              <p className="text-lg font-bold text-slate-800">{notifications.filter((n) => n.type === 'ERROR').length}</p>
               <p className="text-xs text-slate-500">Urgent</p>
             </div>
           </CardContent>
@@ -304,7 +324,12 @@ export function ExaminerNotificationsView() {
       </motion.div>
 
       {/* Filter */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex items-center gap-2">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="flex items-center gap-2"
+      >
         <Button
           variant={filter === 'all' ? 'default' : 'outline'}
           size="sm"
@@ -324,21 +349,27 @@ export function ExaminerNotificationsView() {
       </motion.div>
 
       {/* Notifications List */}
-      <div className="space-y-3">
+      <div className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
         <AnimatePresence>
           {filtered.length === 0 ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                   <BellOff className="h-12 w-12 text-slate-300 mb-3" />
-                  <p className="text-slate-600 font-medium">{filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}</p>
-                  <p className="text-sm text-slate-400 mt-1">You&apos;ll see evaluation-related notifications here</p>
+                  <p className="text-slate-600 font-medium">
+                    {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+                  </p>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {filter === 'unread'
+                      ? 'All notifications have been read. Great job staying on top of things!'
+                      : 'You\'ll see evaluation-related notifications here when they arrive.'}
+                  </p>
                 </CardContent>
               </Card>
             </motion.div>
           ) : (
-            filtered.map(n => (
-              <NotificationItem key={n.id} n={n} onRead={handleMarkRead} onDelete={handleDelete} />
+            filtered.map((n) => (
+              <NotificationItem key={n.id} n={n} onRead={handleMarkRead} />
             ))
           )}
         </AnimatePresence>

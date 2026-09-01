@@ -1,95 +1,70 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
-  GraduationCap, CreditCard, FileText, IndianRupee, UserPlus, Activity, Bell, BookOpen, PenTool,
+  GraduationCap, CreditCard, FileText, IndianRupee, UserPlus, Users, Activity, AlertCircle, BookOpen, RefreshCw,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuthStore, useNavStore } from '@/lib/store';
 
 // ── Types ────────────────────────────────────────────────────────────────────
-interface TeacherDashboardData {
-  totalStudents: number;
-  registeredStudents: number;
-  paidStudents: number;
-  essaysSubmitted: number;
-  pendingPayments: number;
-  students: Array<{
-    id: string; name: string; email: string; school: string;
-    registrationStatus: string; paymentStatus: string; essayStatus: string;
-  }>;
-  recentActivity: Array<{ id: string; message: string; time: string }>;
+interface RegistrationRecord {
+  id: string; registrationNo: string;
+  student: { user: { name: string | null; email: string }; id: string };
+  competition: { id: string; name: string };
+  status: string;
+  payments: { status: string }[];
+  essays: { status: string }[];
+  registeredAt: string;
 }
 
-// ── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK: TeacherDashboardData = {
-  totalStudents: 48,
-  registeredStudents: 35,
-  paidStudents: 28,
-  essaysSubmitted: 22,
-  pendingPayments: 7,
-  students: [
-    { id: 's1', name: 'Aarav Sharma', email: 'aarav@school.edu', school: 'DPS Jaipur', registrationStatus: 'CONFIRMED', paymentStatus: 'SUCCESS', essayStatus: 'SUBMITTED' },
-    { id: 's2', name: 'Priya Patel', email: 'priya@school.edu', school: 'DPS Jaipur', registrationStatus: 'CONFIRMED', paymentStatus: 'SUCCESS', essayStatus: 'UNDER_EVALUATION' },
-    { id: 's3', name: 'Rohan Mehta', email: 'rohan@school.edu', school: 'DPS Jaipur', registrationStatus: 'PAYMENT_PENDING', paymentStatus: 'PENDING', essayStatus: 'NOT_STARTED' },
-    { id: 's4', name: 'Ananya Gupta', email: 'ananya@school.edu', school: 'DPS Jaipur', registrationStatus: 'CONFIRMED', paymentStatus: 'SUCCESS', essayStatus: 'SUBMITTED' },
-    { id: 's5', name: 'Vikram Singh', email: 'vikram@school.edu', school: 'DPS Jaipur', registrationStatus: 'PAID', paymentStatus: 'SUCCESS', essayStatus: 'UPLOAD_PENDING' },
-    { id: 's6', name: 'Meera Joshi', email: 'meera@school.edu', school: 'DPS Jaipur', registrationStatus: 'PENDING', paymentStatus: 'CREATED', essayStatus: 'NOT_STARTED' },
-    { id: 's7', name: 'Arjun Reddy', email: 'arjun@school.edu', school: 'DPS Jaipur', registrationStatus: 'CONFIRMED', paymentStatus: 'SUCCESS', essayStatus: 'VALIDATING' },
-  ],
-  recentActivity: [
-    { id: 'a1', message: 'Aarav Sharma submitted their essay for National Essay Competition 2025', time: '2025-07-08T14:30:00Z' },
-    { id: 'a2', message: 'Priya Patel completed payment for National Essay Competition 2025', time: '2025-07-07T11:00:00Z' },
-    { id: 'a3', message: 'New student Rohan Mehta registered under your school', time: '2025-07-06T09:30:00Z' },
-    { id: 'a4', message: 'Ananya Gupta uploaded their essay successfully', time: '2025-07-05T16:45:00Z' },
-  ],
-};
+interface NotificationRecord {
+  id: string; title: string; message: string;
+  type: string; isRead: boolean; createdAt: string;
+}
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+interface DashboardStats {
+  totalStudents: number; registered: number; paid: number;
+  essaysSubmitted: number; pendingPayments: number;
+}
+
 function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    CONFIRMED: 'bg-emerald-100 text-emerald-700', VERIFIED: 'bg-teal-100 text-teal-700',
+  const m: Record<string, string> = {
+    CONFIRMED: 'bg-emerald-100 text-emerald-700', PAID: 'bg-emerald-100 text-emerald-700',
     PENDING: 'bg-amber-100 text-amber-700', PAYMENT_PENDING: 'bg-amber-100 text-amber-700',
-    PAID: 'bg-emerald-100 text-emerald-700', CANCELLED: 'bg-rose-100 text-rose-700',
-    SUCCESS: 'bg-emerald-100 text-emerald-700', FAILED: 'bg-rose-100 text-rose-700',
-    CREATED: 'bg-slate-100 text-slate-700',
-    NOT_STARTED: 'bg-slate-100 text-slate-600', UPLOAD_PENDING: 'bg-amber-100 text-amber-700',
-    SUBMITTED: 'bg-emerald-100 text-emerald-700', UNDER_EVALUATION: 'bg-teal-100 text-teal-700',
-    VALIDATING: 'bg-amber-100 text-amber-700', UPLOADING: 'bg-amber-100 text-amber-700',
+    SUCCESS: 'bg-emerald-100 text-emerald-700', CREATED: 'bg-slate-100 text-slate-600',
+    NOT_STARTED: 'bg-slate-100 text-slate-600', SUBMITTED: 'bg-emerald-100 text-emerald-700',
+    UNDER_EVALUATION: 'bg-teal-100 text-teal-700', VALIDATING: 'bg-amber-100 text-amber-700',
+    UPLOAD_PENDING: 'bg-amber-100 text-amber-700', VERIFIED: 'bg-teal-100 text-teal-700',
   };
-  return map[status] ?? 'bg-slate-100 text-slate-700';
+  return m[status] ?? 'bg-slate-100 text-slate-600';
 }
 
-function fmtLabel(s: string) {
-  const map: Record<string, string> = {
-    CONFIRMED: 'Confirmed', VERIFIED: 'Verified', PENDING: 'Pending', PAYMENT_PENDING: 'Pay Pending',
-    PAID: 'Paid', CANCELLED: 'Cancelled', SUCCESS: 'Paid', FAILED: 'Failed', CREATED: 'Not Paid',
-    NOT_STARTED: 'Not Started', UPLOAD_PENDING: 'Upload Pending', SUBMITTED: 'Submitted',
-    UNDER_EVALUATION: 'Evaluating', VALIDATING: 'Validating', UPLOADING: 'Uploading',
+function fmtStatus(s: string) {
+  const m: Record<string, string> = {
+    CONFIRMED: 'Confirmed', PAID: 'Paid', PENDING: 'Pending', PAYMENT_PENDING: 'Pay Pending',
+    SUCCESS: 'Paid', CREATED: 'Not Paid', NOT_STARTED: 'Not Started', SUBMITTED: 'Submitted',
+    UNDER_EVALUATION: 'Evaluating', VALIDATING: 'Validating', UPLOAD_PENDING: 'Upload Pending', VERIFIED: 'Verified',
   };
-  return map[s] ?? s;
+  return m[s] ?? s;
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const hrs = Math.floor(diff / 3600000);
-  if (hrs < 1) return 'Just now';
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+function timeAgo(d: string) {
+  const diff = Date.now() - new Date(d).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return 'Just now'; if (h < 24) return `${h}h ago`;
+  const days = Math.floor(h / 24);
+  return days < 7 ? `${days}d ago` : new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
 // ── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, accent }: {
-  icon: React.ElementType; label: string; value: string | number; accent: string;
+  icon: React.ElementType; label: string; value: number; accent: string;
 }) {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
@@ -120,7 +95,10 @@ function DashboardSkeleton() {
           <Card key={i}><CardContent className="p-5"><Skeleton className="h-16 w-full rounded" /></CardContent></Card>
         ))}
       </div>
-      <Card><CardContent className="p-6"><Skeleton className="h-64 w-full rounded" /></CardContent></Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2"><CardContent className="p-6"><Skeleton className="h-64 w-full rounded" /></CardContent></Card>
+        <Card><CardContent className="p-6"><Skeleton className="h-64 w-full rounded" /></CardContent></Card>
+      </div>
     </div>
   );
 }
@@ -129,26 +107,76 @@ function DashboardSkeleton() {
 export function TeacherDashboardView() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavStore((s) => s.navigate);
-  const [data, setData] = useState<TeacherDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const tp = (user as Record<string, unknown>)?.teacherProfile as { id: string; schoolName?: string; designation?: string; employeeId?: string } | undefined;
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/api/seed?action=teacher-dashboard');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data) { setData(json.data); setLoading(false); return; }
-        }
-      } catch { /* fall through */ }
-      setData(MOCK);
-      setLoading(false);
+  const [registrations, setRegistrations] = useState<RegistrationRecord[]>([]);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    if (!tp?.id || !user?.id) { setLoading(false); return; }
+    setLoading(true); setError(null);
+    try {
+      const [regRes, notifRes] = await Promise.all([
+        fetch('/api/registrations?pageSize=50'),
+        fetch(`/api/notifications?userId=${user.id}&pageSize=5`),
+      ]);
+      if (!regRes.ok || !notifRes.ok) throw new Error('Failed to fetch data');
+      const regJson = await regRes.json();
+      const notifJson = await notifRes.json();
+      setRegistrations(regJson.data ?? []);
+      setNotifications(notifJson.data ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load dashboard');
     }
-    load();
-  }, []);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, [tp?.id, user?.id]);
+
+  const { stats, recentStudents } = useMemo(() => {
+    const myStudentIds = new Set<string>();
+    const studentMap = new Map<string, { name: string; email: string }>();
+    // First pass: find all student profile IDs from registrations
+    const regStudentIds = registrations.map(r => r.student.id);
+    regStudentIds.forEach(id => myStudentIds.add(id));
+
+    let registered = 0, paid = 0, essaysSubmitted = 0, pendingPayments = 0;
+    registrations.forEach(r => {
+      if (['PAID', 'CONFIRMED', 'VERIFIED'].includes(r.status)) registered++;
+      const payStatus = r.payments[0]?.status;
+      if (payStatus === 'SUCCESS') paid++;
+      if (payStatus === 'CREATED' || payStatus === 'PENDING') pendingPayments++;
+      const essayStatus = r.essays[0]?.status;
+      if (['SUBMITTED', 'UNDER_EVALUATION', 'EVALUATED', 'VALID'].includes(essayStatus ?? '')) essaysSubmitted++;
+      studentMap.set(r.student.id, { name: r.student.user.name ?? r.student.user.email, email: r.student.user.email });
+    });
+
+    const recent = registrations.slice(0, 5).map(r => ({
+      id: r.id, name: studentMap.get(r.student.id)?.name ?? 'Unknown', email: studentMap.get(r.student.id)?.email ?? '',
+      registrationStatus: r.status,
+      paymentStatus: r.payments[0]?.status ?? 'CREATED',
+      essayStatus: r.essays[0]?.status ?? 'NOT_STARTED',
+    }));
+
+    return {
+      stats: { totalStudents: myStudentIds.size, registered, paid, essaysSubmitted, pendingPayments },
+      recentStudents: recent,
+    };
+  }, [registrations]);
 
   if (loading) return <DashboardSkeleton />;
-  if (!data) return null;
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <AlertCircle className="h-12 w-12 text-rose-400 mb-3" />
+        <p className="text-slate-600 font-medium">Failed to load dashboard</p>
+        <p className="text-sm text-slate-400 mt-1">{error}</p>
+        <Button variant="outline" className="mt-4 gap-2" onClick={load}><RefreshCw className="h-4 w-4" /> Try Again</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -159,11 +187,14 @@ export function TeacherDashboardView() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold">Welcome back, {user?.name ?? 'Teacher'}!</h1>
-                <p className="mt-1 text-emerald-100">Manage your students and track their competition progress</p>
+                <p className="mt-1 text-emerald-100">{tp?.schoolName ?? 'Your school'} &middot; Track your students&apos; competition progress</p>
               </div>
               <div className="hidden sm:flex gap-3">
                 <Button onClick={() => navigate('teacher-add-student')} className="gap-2 bg-white text-emerald-700 hover:bg-emerald-50">
                   <UserPlus className="h-4 w-4" /> Add Student
+                </Button>
+                <Button onClick={() => navigate('teacher-students')} className="gap-2 bg-white/20 text-white hover:bg-white/30">
+                  <Users className="h-4 w-4" /> View All
                 </Button>
               </div>
             </div>
@@ -173,57 +204,45 @@ export function TeacherDashboardView() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatCard icon={GraduationCap} label="Total Students" value={data.totalStudents} accent="bg-emerald-500" />
-        <StatCard icon={BookOpen} label="Registered" value={data.registeredStudents} accent="bg-teal-500" />
-        <StatCard icon={CreditCard} label="Paid" value={data.paidStudents} accent="bg-emerald-500" />
-        <StatCard icon={FileText} label="Essays Submitted" value={data.essaysSubmitted} accent="bg-amber-500" />
-        <StatCard icon={IndianRupee} label="Pending Payments" value={data.pendingPayments} accent="bg-rose-500" />
+        <StatCard icon={GraduationCap} label="Total Students" value={stats.totalStudents} accent="bg-emerald-500" />
+        <StatCard icon={BookOpen} label="Registered" value={stats.registered} accent="bg-teal-500" />
+        <StatCard icon={CreditCard} label="Paid" value={stats.paid} accent="bg-emerald-500" />
+        <StatCard icon={FileText} label="Essays Submitted" value={stats.essaysSubmitted} accent="bg-amber-500" />
+        <StatCard icon={IndianRupee} label="Pending Payments" value={stats.pendingPayments} accent="bg-rose-500" />
       </div>
 
       {/* Students Table + Activity */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Student List */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-2">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <GraduationCap className="h-5 w-5 text-emerald-600" />
-                  <CardTitle className="text-base">My Students</CardTitle>
+                  <CardTitle className="text-base">Recent Students</CardTitle>
                 </div>
-                <Button variant="ghost" size="sm" className="text-xs text-emerald-600" onClick={() => navigate('teacher-students')}>
-                  View All
-                </Button>
+                <Button variant="ghost" size="sm" className="text-xs text-emerald-600" onClick={() => navigate('teacher-students')}>View All</Button>
               </div>
             </CardHeader>
             <CardContent>
-              {data.students.length === 0 ? (
+              {recentStudents.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <GraduationCap className="h-10 w-10 text-slate-300 mb-2" />
-                  <p className="text-sm text-slate-500">No students yet</p>
+                  <p className="text-sm text-slate-500">No students registered yet</p>
+                  <Button variant="outline" size="sm" className="mt-3 gap-1.5 text-emerald-600 border-emerald-200" onClick={() => navigate('teacher-add-student')}>
+                    <UserPlus className="h-3.5 w-3.5" /> Add Your First Student
+                  </Button>
                 </div>
               ) : (
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Registration</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead>Essay</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Registration</TableHead><TableHead>Payment</TableHead><TableHead>Essay</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {data.students.slice(0, 7).map(s => (
+                    {recentStudents.map(s => (
                       <TableRow key={s.id}>
-                        <TableCell>
-                          <div>
-                            <p className="text-sm font-medium text-slate-800">{s.name}</p>
-                            <p className="text-xs text-slate-400">{s.email}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell><Badge variant="outline" className={statusBadge(s.registrationStatus)}>{fmtLabel(s.registrationStatus)}</Badge></TableCell>
-                        <TableCell><Badge variant="outline" className={statusBadge(s.paymentStatus)}>{fmtLabel(s.paymentStatus)}</Badge></TableCell>
-                        <TableCell><Badge variant="outline" className={statusBadge(s.essayStatus)}>{fmtLabel(s.essayStatus)}</Badge></TableCell>
+                        <TableCell><div><p className="text-sm font-medium text-slate-800">{s.name}</p><p className="text-xs text-slate-400">{s.email}</p></div></TableCell>
+                        <TableCell><Badge variant="outline" className={statusBadge(s.registrationStatus)}>{fmtStatus(s.registrationStatus)}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className={statusBadge(s.paymentStatus)}>{fmtStatus(s.paymentStatus)}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className={statusBadge(s.essayStatus)}>{fmtStatus(s.essayStatus)}</Badge></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -233,29 +252,29 @@ export function TeacherDashboardView() {
           </Card>
         </motion.div>
 
-        {/* Recent Activity */}
+        {/* Recent Notifications */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <Card className="h-full">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Activity className="h-5 w-5 text-emerald-600" />
-                <CardTitle className="text-base">Recent Activity</CardTitle>
+                <CardTitle className="text-base">Recent Notifications</CardTitle>
               </div>
             </CardHeader>
-            <CardContent>
-              {data.recentActivity.length === 0 ? (
+            <CardContent className="max-h-72 overflow-y-auto">
+              {notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Activity className="h-10 w-10 text-slate-300 mb-2" />
-                  <p className="text-sm text-slate-500">No recent activity</p>
+                  <p className="text-sm text-slate-500">No notifications yet</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {data.recentActivity.map(a => (
-                    <div key={a.id} className="flex gap-3">
-                      <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
-                      <div>
-                        <p className="text-sm text-slate-700 leading-snug">{a.message}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{timeAgo(a.time)}</p>
+                <div className="space-y-3">
+                  {notifications.map(n => (
+                    <div key={n.id} className="flex gap-3">
+                      <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${n.isRead ? 'bg-slate-300' : 'bg-emerald-400'}`} />
+                      <div className="min-w-0">
+                        <p className={`text-sm leading-snug truncate ${n.isRead ? 'text-slate-600' : 'font-medium text-slate-800'}`}>{n.title}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{timeAgo(n.createdAt)}</p>
                       </div>
                     </div>
                   ))}
