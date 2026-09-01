@@ -1,10 +1,12 @@
-# EssayCompass
+# NexusBoard SaaS Platform
 
-**Online Essay Writing Competition Management System**
+**Enterprise-Grade Essay Competition Management System**
 
-Version 0.2.1 | Active Development
+Version 1.0.0 | Production-Ready | Vercel Deployable
 
-EssayCompass is a full-stack web application that manages the complete lifecycle of essay writing competitions. It handles student registration, fee collection via Razorpay payments, PDF essay submission to Cloudinary, multi-examiner blind evaluation, automated score calculation, and result publication.
+<p align="center">
+  <strong>NexusBoard</strong> is a full-stack, scalable SaaS platform that manages the complete lifecycle of essay writing competitions — from student registration and fee collection through multi-examiner blind evaluation to automated score calculation and result publication.
+</p>
 
 ---
 
@@ -41,7 +43,7 @@ EssayCompass is a full-stack web application that manages the complete lifecycle
 
 ## Project Overview
 
-EssayCompass manages every stage of an essay writing competition:
+NexusBoard manages every stage of an essay writing competition:
 
 - **Administrators** create and configure competitions with categories, age groups, and evaluation criteria
 - **Teachers** refer students and manage their profiles
@@ -66,12 +68,14 @@ The application uses a single-page architecture with client-side routing via Zus
 - **Dashboard analytics** -- Role-specific dashboards with charts, trends, and KPIs
 - **Teacher referral system** -- Teachers can register and refer students to competitions
 - **Responsive design** -- Mobile-first design with shadcn/ui component library
+- **Dark mode support** -- Full light/dark theme with next-themes
+- **Type-safe** -- End-to-end TypeScript with Zod validation
 
 ---
 
 ## Architecture Overview
 
-EssayCompass follows a layered architecture:
+NexusBoard follows a layered, scalable architecture:
 
 ```
 Browser (React SPA) --> Zustand (state) --> TanStack Query --> API Routes --> Prisma ORM --> Database
@@ -79,39 +83,84 @@ Browser (React SPA) --> Zustand (state) --> TanStack Query --> API Routes --> Pr
                                                                          Razorpay / Cloudinary / Resend
 ```
 
-- **Single-page app**: All views are rendered client-side from the `/` route. The Zustand store manages the current view and navigation state.
-- **13 API routes** handle all server-side logic, including authentication, CRUD operations, payments, evaluations, and audit logging.
-- **28 view components** organized by role: 13 admin, 7 student, 5 teacher, 3 examiner, plus 2 auth views.
-- **20+ Prisma models** covering users, profiles, competitions, registrations, payments, essays, evaluations, results, and system settings.
+### Architecture Diagram
 
-For the full architecture document including diagrams, data flows, caching strategy, and error handling, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CLIENT LAYER                                   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌─────────────────────────┐ │
+│  │  React   │  │ Zustand  │  │ TanStack     │  │  Framer Motion          │ │
+│  │  Views   │  │  Store   │  │  Query       │  │  Animations             │ │
+│  └────┬─────┘  └────┬─────┘  └──────┬───────┘  └─────────────────────────┘ │
+│       └──────────────┴───────────────┘                                      │
+│                          │ Fetch / POST                                     │
+├──────────────────────────┼──────────────────────────────────────────────────┤
+│                    API LAYER (Next.js Route Handlers)                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │
+│  │  /auth   │  │ /users   │  │  /comp.. │  │  /pay..  │  │  /eval..     │  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘  │
+│       └──────────────┴────────────┴─────────────┴───────────────┘          │
+│                          │                                                  │
+├──────────────────────────┼──────────────────────────────────────────────────┤
+│                    DATA ACCESS LAYER                                       │
+│  ┌──────────────────────┴──────────────────────┐                           │
+│  │            Prisma ORM                        │                           │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────────┐  │                           │
+│  │  │ Models  │  │  Query  │  │ Transactions│  │                           │
+│  │  └─────────┘  └─────────┘  └─────────────┘  │                           │
+│  └──────────────────────┬──────────────────────┘                           │
+│                          │                                                  │
+├──────────────────────────┼──────────────────────────────────────────────────┤
+│                    DATABASE LAYER                                          │
+│  ┌──────────────────────┴──────────────────────┐                           │
+│  │  SQLite (Dev) / Neon PostgreSQL (Prod)       │                           │
+│  └──────────────────────────────────────────────┘                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                    EXTERNAL SERVICES                                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐    │
+│  │  Razorpay    │  │  Cloudinary  │  │  Resend      │  │  NextAuth.js  │    │
+│  │  (Payments)  │  │  (Storage)   │  │  (Email)     │  │  (Auth)       │    │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └───────────────┘    │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Architectural Decisions
+
+| Decision | Rationale |
+|---|---|
+| SPA with Zustand routing | Avoids full-page reloads, instant navigation, simpler deployment |
+| 13 API route handlers | Clean separation between client and server logic |
+| 28+ view components organized by role | Scalable — new roles/features add views without affecting others |
+| 20+ Prisma models | Comprehensive data model covering the entire competition lifecycle |
+| SQLite for dev, PostgreSQL for prod | Fast local development with production-grade database |
+| Role-Based Access Control (RBAC) | 5 roles with 14 named permissions for fine-grained access control |
+| Audit logging | Immutable audit trail for compliance and debugging |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5 |
-| Styling | Tailwind CSS 4 |
-| UI Components | shadcn/ui (New York style) |
-| Icons | Lucide React |
-| State Management | Zustand (client state) |
-| Server State | TanStack Query v5 |
-| Forms | React Hook Form + Zod |
-| Database ORM | Prisma 6 |
-| Database (dev) | SQLite |
-| Database (prod) | Neon PostgreSQL |
-| Authentication | NextAuth.js v4 (JWT sessions) |
-| Payments | Razorpay |
-| Email | Resend |
-| File Storage | Cloudinary |
-| Animations | Framer Motion |
-| Charts | Recharts |
-| Markdown | React Markdown + MDXEditor |
-| Date Utilities | date-fns |
-| Runtime | Bun |
+| Layer | Technology | Version |
+|---|---|---|
+| Framework | Next.js (App Router) | 16.x |
+| Language | TypeScript | 5.x |
+| Styling | Tailwind CSS | 4.x |
+| UI Components | shadcn/ui (New York style) | Latest |
+| Icons | Lucide React | Latest |
+| State Management | Zustand | 5.x |
+| Server State | TanStack Query | 5.x |
+| Forms | React Hook Form + Zod | 7.x / 4.x |
+| Database ORM | Prisma | 6.x |
+| Database (dev) | SQLite | Built-in |
+| Database (prod) | Neon PostgreSQL | Serverless |
+| Authentication | NextAuth.js | 4.x |
+| Payments | Razorpay | Latest |
+| Email | Resend | Latest |
+| File Storage | Cloudinary | Latest |
+| Animations | Framer Motion | 12.x |
+| Charts | Recharts | 2.x |
+| Date Utilities | date-fns | 4.x |
+| Runtime | Bun / Node.js | Latest |
 
 ---
 
@@ -121,9 +170,9 @@ For the full architecture document including diagrams, data flows, caching strat
 
 - **Bun** (v1.0+) -- [installation guide](https://bun.sh)
 - **Node.js** (v18+) -- if not using Bun as the primary runtime
-- A **Razorpay** account (for payment processing)
-- A **Resend** account (for email delivery)
-- A **Cloudinary** account (for file storage)
+- A **Razorpay** account (for payment processing in production)
+- A **Resend** account (for email delivery in production)
+- A **Cloudinary** account (for file storage in production)
 
 ### Environment Setup
 
@@ -179,62 +228,68 @@ The application runs on `http://localhost:3000`. Open it in your browser and log
 ## Project Structure
 
 ```
-essaycompass/
-|-- prisma/
-|   |-- schema.prisma          # Database schema (20+ models)
-|   |-- seed.ts                # Seed script with demo data
-|-- db/
-|   |-- custom.db              # SQLite database file (dev)
-|-- docs/
-|   |-- ARCHITECTURE.md        # Architecture document
-|   |-- DATABASE.md            # Database design document
-|   |-- DEPLOYMENT.md          # Deployment guide
-|   |-- EXAMINATION.md         # Examination process document
-|   |-- PAYMENTS.md            # Payment integration document
-|   |-- SECURITY.md            # Security considerations
-|-- src/
-|   |-- app/
-|   |   |-- layout.tsx         # Root layout
-|   |   |-- page.tsx           # Single entry point (SPA shell)
-|   |   |-- globals.css        # Global styles
-|   |   |-- api/
-|   |       |-- route.ts               # Health check
-|   |       |-- auth/route.ts          # Authentication (login, register, verify-email)
-|   |       |-- competitions/route.ts  # Competition CRUD
-|   |       |-- registrations/route.ts # Registration management
-|   |       |-- payments/route.ts      # Payment processing
-|   |       |-- essays/route.ts        # Essay submission
-|   |       |-- evaluations/route.ts   # Evaluation management
-|   |       |-- examiners/route.ts     # Examiner management
-|   |       |-- users/route.ts         # User management
-|   |       |-- dashboard/route.ts     # Dashboard analytics
-|   |       |-- announcements/route.ts # Announcement management
-|   |       |-- notifications/route.ts # Notification management
-|   |       |-- settings/route.ts      # System settings
-|   |       |-- audit/route.ts         # Audit log queries
-|   |-- components/
-|   |   |-- auth/               # Login and registration views
-|   |   |-- admin/              # 13 admin view components
-|   |   |-- student/            # 7 student view components
-|   |   |-- teacher/            # 5 teacher view components
-|   |   |-- examiner/           # 3 examiner view components
-|   |   |-- layout/             # App shell, sidebar, header
-|   |   |-- ui/                 # 40+ shadcn/ui components
-|   |-- lib/
-|   |   |-- db.ts              # Prisma client instance
-|   |   |-- store.ts           # Zustand global store
-|   |   |-- constants.ts       # Enums, nav config, state machines
-|   |   |-- types.ts           # TypeScript type definitions
-|   |   |-- utils.ts           # Utility functions (cn, etc.)
-|   |-- hooks/                 # Custom React hooks
-|-- public/
-|   |-- logo.svg               # Application logo
-|   |-- robots.txt              # Search engine directives
-|-- .env.example               # Environment variable template
-|-- package.json               # Dependencies and scripts
-|-- tailwind.config.ts         # Tailwind configuration
-|-- next.config.ts             # Next.js configuration
-|-- tsconfig.json              # TypeScript configuration
+nexusboard-saas-platform/
+├── prisma/
+│   ├── schema.prisma          # Database schema (20+ models)
+│   ├── seed.ts                # Seed script with demo data
+│   └── db/
+│       └── custom.db          # SQLite database file (dev only)
+├── docs/
+│   ├── ARCHITECTURE.md        # Architecture document
+│   ├── DATABASE.md            # Database design document
+│   ├── DEPLOYMENT.md          # Deployment guide
+│   ├── EXAMINATION.md         # Examination process document
+│   ├── PAYMENTS.md            # Payment integration document
+│   └── SECURITY.md            # Security considerations
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx         # Root layout with providers
+│   │   ├── page.tsx           # Single entry point (SPA shell)
+│   │   ├── globals.css        # Global styles
+│   │   └── api/
+│   │       ├── route.ts               # Health check
+│   │       ├── auth/route.ts          # Authentication
+│   │       ├── competitions/route.ts  # Competition CRUD
+│   │       ├── registrations/route.ts # Registration management
+│   │       ├── payments/route.ts      # Payment processing
+│   │       ├── essays/route.ts        # Essay submission
+│   │       ├── evaluations/route.ts   # Evaluation management
+│   │       ├── examiners/route.ts     # Examiner management
+│   │       ├── users/route.ts         # User management
+│   │       ├── dashboard/route.ts     # Dashboard analytics
+│   │       ├── announcements/route.ts # Announcement management
+│   │       ├── notifications/route.ts # Notification management
+│   │       ├── settings/route.ts      # System settings
+│   │       └── audit/route.ts         # Audit log queries
+│   ├── components/
+│   │   ├── auth/               # Login and registration views (2)
+│   │   ├── admin/              # Admin view components (13)
+│   │   ├── student/            # Student view components (7)
+│   │   ├── teacher/            # Teacher view components (5)
+│   │   ├── examiner/           # Examiner view components (3)
+│   │   ├── layout/             # App shell, sidebar, header (3)
+│   │   ├── views/              # Shared view components (6)
+│   │   └── ui/                 # 40+ shadcn/ui base components
+│   ├── lib/
+│   │   ├── db.ts              # Prisma client singleton
+│   │   ├── store.ts           # Zustand global stores (auth, nav, app)
+│   │   ├── constants.ts       # Enums, navigation config, state machines
+│   │   ├── types.ts           # TypeScript type definitions
+│   │   └── utils.ts           # Utility functions (cn, etc.)
+│   ├── hooks/                  # Custom React hooks
+│   │   ├── use-mobile.ts      # Mobile detection hook
+│   │   └── use-toast.ts       # Toast notification hook
+│   └── providers.tsx           # Client-side providers wrapper
+├── public/
+│   └── robots.txt              # Search engine directives
+├── .env.example               # Environment variable template
+├── .gitignore                  # Git ignore rules
+├── package.json                # Dependencies and scripts
+├── tailwind.config.ts          # Tailwind configuration
+├── next.config.ts              # Next.js configuration
+├── tsconfig.json               # TypeScript configuration
+├── eslint.config.mjs           # ESLint configuration
+└── components.json             # shadcn/ui configuration
 ```
 
 ---
@@ -365,6 +420,18 @@ Each competition can have multiple age-based categories (e.g., Group A: 10-12, G
 
 ## Payment Flow
 
+```
+┌─────────┐     ┌──────────┐     ┌───────────┐     ┌──────────┐     ┌───────────┐
+│ Student │────>│  Register │────>│ Create    │────>│ Razorpay │────>│ Verify    │
+│         │     │          │     │ Order     │     │ Checkout │     │ Signature │
+└─────────┘     └──────────┘     └───────────┘     └──────────┘     └─────┬─────┘
+                                                                            │
+                                                              ┌─────────────▼────────────┐
+                                                              │  Update Payment Status   │
+                                                              │  Confirm Registration    │
+                                                              └──────────────────────────┘
+```
+
 1. **Registration**: Student registers for a competition and the registration status becomes `PAYMENT_PENDING`.
 2. **Order Creation**: The frontend calls `POST /api/payments` which creates a Razorpay order and returns the order ID.
 3. **Client Checkout**: The Razorpay checkout modal opens using the `NEXT_PUBLIC_RAZORPAY_KEY_ID` and the order details.
@@ -373,8 +440,6 @@ Each competition can have multiple age-based categories (e.g., Group A: 10-12, G
 6. **Webhook**: Razorpay sends webhook events to the server (e.g., `payment.captured`, `payment.failed`) which are verified using `RAZORPAY_WEBHOOK_SECRET`.
 
 Payment statuses: `CREATED` -> `PENDING` -> `SUCCESS` / `FAILED` / `CANCELLED` / `REFUNDED` / `PARTIALLY_REFUNDED`
-
-For full payment integration details, see [docs/PAYMENTS.md](docs/PAYMENTS.md).
 
 ---
 
@@ -387,11 +452,22 @@ For full payment integration details, see [docs/PAYMENTS.md](docs/PAYMENTS.md).
 5. **Status Update**: Essay status progresses through: `NOT_STARTED` -> `UPLOAD_PENDING` -> `UPLOADING` -> `VALIDATING` -> `VALID` -> `SUBMITTED` -> `LOCKED`
 6. **Locking**: Once the submission window closes, essays are locked and assigned to examiners.
 
-Essays can also transition to `INVALID` if validation fails, returning to `UPLOAD_PENDING` for re-submission.
-
 ---
 
 ## Examination Flow
+
+```
+┌──────────┐     ┌──────────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────┐
+│  Admin   │────>│  Assign N    │────>│  Examiner    │────>│  Calculate    │────>│ Publish  │
+│          │     │  Examiners   │     │  Evaluates   │     │  Final Score  │     │ Results  │
+└──────────┘     └──────────────┘     └──────────────┘     └───────────────┘     └──────────┘
+                      │                     │                      │
+                      ▼                     ▼                      ▼
+               ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+               │ Blind Mode   │     │ Rubric Score │     │ MEAN / MEDIAN│
+               │ (if enabled) │     │ per Criterion│     │ / TRIMMED    │
+               └──────────────┘     └──────────────┘     └──────────────┘
+```
 
 1. **Examiner Assignment**: Admin assigns N examiners (configurable, default 3) to each essay via the Examination management view.
 2. **Blind Evaluation**: When blind evaluation is enabled, examiners see only the essay content (downloaded from Cloudinary) without student identity.
@@ -403,8 +479,6 @@ Essays can also transition to `INVALID` if validation fails, returning to `UPLOA
    - **TRIMMED_MEAN**: Average after removing the highest and lowest scores
 6. **Ranking**: Students are ranked within each competition category based on their final scores.
 7. **Publication**: Admin publishes results, making them visible to students.
-
-For the full examination document, see [docs/EXAMINATION.md](docs/EXAMINATION.md).
 
 ---
 
@@ -423,7 +497,7 @@ See [`.env.example`](.env.example) for the complete list with comments. Summary:
 | `RESEND_FROM_EMAIL` | Prod | Verified sender email address for Resend |
 | `CLOUDINARY_CLOUD_NAME` | Prod | Cloudinary cloud name |
 | `CLOUDINARY_API_KEY` | Prod | Cloudinary API key |
-| `CLOUDINARY_API_SECRET` | Prod | Cloudinary API secret |
+| `CLOUDINARY_API_SECRET` | Prod | Cloudinary secret |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Prod | Public Razorpay key ID (exposed to client) |
 | `APP_URL` | No | Public URL of the application (default: `http://localhost:3000`) |
 | `NODE_ENV` | No | Environment mode (`development` or `production`) |
@@ -432,17 +506,43 @@ See [`.env.example`](.env.example) for the complete list with comments. Summary:
 
 ## Deployment on Vercel
 
-EssayCompass is designed for deployment on Vercel with Neon PostgreSQL as the production database.
+NexusBoard is designed for seamless deployment on Vercel with Neon PostgreSQL as the production database.
 
-Key steps:
+### Step-by-Step Deployment
 
-1. **Set up a Neon PostgreSQL database** and obtain the connection string
-2. **Configure environment variables** in the Vercel project settings
-3. **Change the Prisma provider** in `schema.prisma` from `sqlite` to `postgresql` for production builds
-4. **Deploy** via `vercel` CLI or GitHub integration
-5. **Run migrations** against the Neon database after deployment
+1. **Push to GitHub**:
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit: NexusBoard SaaS Platform"
+   git remote add origin https://github.com/your-username/nexusboard-saas-platform.git
+   git push -u origin main
+   ```
 
-For the complete deployment guide including database migration, environment configuration, and troubleshooting, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+2. **Set up Neon PostgreSQL**:
+   - Create a project at [neon.tech](https://neon.tech)
+   - Copy the connection string
+   - Change Prisma provider in `schema.prisma` from `sqlite` to `postgresql`
+
+3. **Connect Vercel**:
+   - Go to [vercel.com](https://vercel.com) and import the GitHub repository
+   - Configure environment variables in the Vercel project settings
+   - Set `DATABASE_URL` to the Neon connection string with `?sslmode=require`
+   - Set `AUTH_SECRET` to a random string (`openssl rand -base64 32`)
+
+4. **Deploy**:
+   - Vercel will auto-detect Next.js and deploy
+   - Run `npx prisma db push` against the Neon database after first deploy
+
+5. **Custom Domain** (optional):
+   - Add custom domain in Vercel project settings
+
+### Vercel Configuration
+
+The `next.config.ts` is pre-configured for Vercel with:
+- `output: 'standalone'` for optimized serverless deployment
+- Image optimization via `sharp`
+- Proper headers for security
 
 ---
 
@@ -458,26 +558,23 @@ For the complete deployment guide including database migration, environment conf
 ### Razorpay (Payments)
 
 1. Create an account at [razorpay.com](https://razorpay.com)
-2. Navigate to Settings > API Keys to generate `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`
+2. Navigate to Settings > API Keys to generate keys
 3. Set up webhooks at Settings > Webhooks for events: `payment.captured`, `payment.failed`
-4. Copy the webhook secret to `RAZORPAY_WEBHOOK_SECRET`
-5. Set `NEXT_PUBLIC_RAZORPAY_KEY_ID` to the same value as `RAZORPAY_KEY_ID`
-6. Test mode is available for development without real transactions
+4. Test mode is available for development without real transactions
 
 ### Resend (Email)
 
 1. Create an account at [resend.com](https://resend.com)
 2. Generate an API key from the API Keys page
 3. Add and verify a sending domain in the Domains section
-4. Set `RESEND_FROM_EMAIL` to an address on your verified domain
-5. Free tier includes 3,000 emails/month and 100 emails/day
+4. Free tier includes 3,000 emails/month and 100 emails/day
 
 ### Cloudinary (File Storage)
 
 1. Create an account at [cloudinary.com](https://cloudinary.com)
 2. Find your Cloud Name, API Key, and API Secret on the Dashboard
 3. Configure upload presets for PDF files in Settings > Upload
-4. Free tier includes 25 GB storage, 25 GB bandwidth/month, and 25,000 transformations/month
+4. Free tier includes 25 GB storage and 25 GB bandwidth/month
 
 ---
 
@@ -485,11 +582,13 @@ For the complete deployment guide including database migration, environment conf
 
 | Service | Free Tier Limits | Notes |
 |---|---|---|
+| Vercel | 100 GB bandwidth, serverless function executions | Hobby plan is free for personal projects |
 | Neon | 0.5 GB storage, 1 compute endpoint | Sufficient for small-to-medium competitions |
 | Razorpay | Test mode (no real transactions) | Production requires KYC and business verification |
 | Resend | 3,000 emails/month, 100/day | Custom domain required for production |
 | Cloudinary | 25 GB storage, 25 GB bandwidth/month | PDF uploads only; no image transformations needed |
-| Vercel | 100 GB bandwidth, serverless function executions | Hobby plan is free for personal projects |
+
+**Total estimated cost for a small deployment: $0/month (all free tiers)**
 
 ---
 
@@ -522,4 +621,10 @@ Detailed documentation is available in the `docs/` directory:
 
 ## License
 
-This project is proprietary software. All rights reserved.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  Built with ❤️ by <strong>Arnab Das</strong> using Next.js, TypeScript, Tailwind CSS & shadcn/ui
+</p>

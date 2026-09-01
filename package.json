@@ -1,7 +1,9 @@
 {
-  "name": "nextjs_tailwind_shadcn_ts",
-  "version": "0.2.1",
-  "private": true,
+  "name": "nexusboard-saas-platform",
+  "version": "1.0.0",
+  "description": "NexusBoard - Full-Stack SaaS Essay Competition Management Platform with Multi-Role RBAC, Payment Processing, Blind Evaluation & Real-Time Analytics",
+  "author": "Arnab Das",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
