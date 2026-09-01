@@ -108,10 +108,14 @@ Vercel auto-detects these settings, but verify:
 | Setting | Value |
 |---|---|
 | Framework Preset | Next.js |
-| Build Command | `npx prisma generate && next build` |
+| Build Command | *(leave empty — `vercel-build` script in package.json is auto-detected)* |
 | Output Directory | `.next` |
 | Install Command | `npm install` |
 | Node.js Version | 18.x |
+
+> The `vercel-build` script in `package.json` runs automatically:
+> `prisma generate && prisma db push --accept-data-loss && next build`
+> This means **schema is auto-synced to Neon on every deploy**.
 
 ### 4.3 Deploy
 
@@ -129,17 +133,53 @@ Every push to the `main` branch triggers an automatic deployment.
 
 ## 5. Post-Deployment
 
-### 5.1 Seed Production Data
+### 5.1 Seed the Neon Database
 
-For initial setup, you can run the seed script locally against the production database:
+After your first deployment, seed the database with demo data (users, roles, competition, settings).
+
+**Option A: Using the dedicated Neon seed script (Recommended)**
 
 ```bash
-DATABASE_URL="postgresql://..." npx tsx prisma/seed.ts
+# Clone the repo locally
+ git clone https://github.com/arnab-das234/nexusboard-saas-platform.git
+ cd nexusboard-saas-platform
+ npm install
+
+# Step 1: Temporarily switch to PostgreSQL in prisma/schema.prisma
+#   Change: provider = "sqlite"  →  provider = "postgresql"
+
+# Step 2: Push schema + Seed in ONE command
+ DATABASE_URL="postgresql://neondb_owner:YOUR_PASSWORD@ep-xxx.region.aws.neon.tech/neondb?sslmode=require" \
+   npx prisma db push --accept-data-loss && \
+   DATABASE_URL="postgresql://neondb_owner:YOUR_PASSWORD@ep-xxx.region.aws.neon.tech/neondb?sslmode=require" \
+   npm run seed:neon
+
+# Step 3: Revert schema.prisma back to SQLite for local dev
+#   Change: provider = "postgresql"  →  provider = "sqlite"
 ```
 
-### 5.2 Create Admin User
+The `seed:neon` script will:
+- Verify the connection is PostgreSQL (not SQLite)
+- Create 5 roles, 13 users with profiles
+- Create 1 demo competition with 3 categories and 6 evaluation criteria
+- Create system settings, announcements, and admin permissions
+- Print a summary with login credentials
 
-Use the seed script or register via the app and manually update the role in the database.
+**Option B: One-liner with the standard seed script**
+
+```bash
+DATABASE_URL="postgresql://user:pass@ep-xxx.neon.tech/db?sslmode=require" npx tsx prisma/seed.ts
+```
+
+### 5.2 Login Credentials After Seeding
+
+| Role | Email | Password |
+|---|---|---|
+| SUPER_ADMIN | admin@essaycomp.com | admin123 |
+| ADMIN | ops@essaycomp.com | admin123 |
+| TEACHER | teacher@essaycomp.com | teacher123 |
+| STUDENT | student1@essaycomp.com | student123 |
+| EXAMINER | examiner1@essaycomp.com | examiner123 |
 
 ### 5.3 Verify Webhooks
 
