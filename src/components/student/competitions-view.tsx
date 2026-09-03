@@ -133,7 +133,7 @@ function CompetitionCard({ comp, studentAge, isRegistered, regStatus, onApply }:
 
 export function StudentCompetitionsView() {
   const user = useAuthStore((s) => s.user);
-  const sp = (user as Record<string, unknown>)?.studentProfile as Record<string, string> | undefined;
+  const sp = (user as unknown as Record<string, unknown>)?.studentProfile as Record<string, string> | undefined;
   const studentAge = useMemo(() => calcAge(sp?.dateOfBirth), [sp?.dateOfBirth]);
 
   const [competitions, setCompetitions] = useState<Competition[]>([]);
@@ -154,7 +154,7 @@ export function StudentCompetitionsView() {
         if (sp?.id) params.set('studentId', sp.id);
         const [compRes, regRes] = await Promise.all([
           fetch('/api/competitions'),
-          sp?.id ? fetch(`/api/registrations?${params.toString()}`) : Promise.resolve({ ok: false }),
+          sp?.id ? fetch(`/api/registrations?${params.toString()}`) : Promise.resolve({ ok: false } as unknown as Response),
         ]);
         if (cancelled) return;
         if (compRes.ok) { const j = await compRes.json(); setCompetitions(j.data ?? []); }

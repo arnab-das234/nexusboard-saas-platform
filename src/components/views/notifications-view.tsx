@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Bell, CheckCheck, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Bell, CheckCheck } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { useNotificationStore } from '@/lib/store';
-import type { Notification } from '@/lib/types';
+import { useAppStore } from '@/lib/store';
 
 const TYPE_COLORS: Record<string, string> = {
   INFO: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
@@ -18,8 +16,17 @@ const TYPE_COLORS: Record<string, string> = {
   ERROR: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
+interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export function NotificationsView() {
-  const { notifications, setNotifications, markAsRead, markAllAsRead } = useNotificationStore();
+  const { notifications, setNotifications, markAsRead, markAllAsRead } = useAppStore();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,8 +34,14 @@ export function NotificationsView() {
       try {
         const res = await fetch('/api/notifications');
         if (res.ok) {
-          const data: Notification[] = await res.json();
-          setNotifications(data);
+          const data: NotificationItem[] = await res.json();
+          setNotifications(data.map(n => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            isRead: n.isRead,
+            createdAt: n.createdAt,
+          })));
         }
       } catch { /* ignore */ } finally { setLoading(false); }
     }
@@ -81,8 +94,8 @@ export function NotificationsView() {
             >
               <CardContent className="flex items-start justify-between p-4">
                 <div className="flex items-start gap-3">
-                  <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${TYPE_COLORS[n.type] || TYPE_COLORS.INFO}`}>
-                    {n.type}
+                  <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${TYPE_COLORS.INFO}`}>
+                    INFO
                   </span>
                   <div>
                     <p className="text-sm font-medium">{n.title}</p>

@@ -806,8 +806,8 @@ function useIsMobile() {
 // ── Main View ────────────────────────────────────────────────────────────────
 export function ExaminerWorkspaceView() {
   const user = useAuthStore((s) => s.user);
-  const examinerId = (user as Record<string, unknown> | null)?.examinerProfile
-    ? ((user as Record<string, unknown>).examinerProfile as { id: string }).id
+  const examinerId = (user as unknown as Record<string, unknown> | null)?.examinerProfile
+    ? ((user as unknown as Record<string, unknown>).examinerProfile as { id: string }).id
     : user?.id;
 
   // Data state

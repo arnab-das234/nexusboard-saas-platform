@@ -8,6 +8,8 @@ import type {
   AdminPermission,
   SettingCategory,
   NavView,
+  ProjectStatus,
+  ProjectPriority,
 } from './types';
 
 // ============ ROLE LABELS ============
@@ -215,3 +217,31 @@ export const MAX_ESSAY_SIZE_MB = 5;
 export const MAX_ESSAY_SIZE_BYTES = 5 * 1024 * 1024;
 export const DEFAULT_EXAMINER_COUNT = 3;
 export const DEFAULT_MAX_MARKS = 100;
+
+// ============ PROJECT STATUS COLORS (Competition-mapped) ============
+export const STATUS_COLORS: Record<string, string> = {
+  ACTIVE: 'text-emerald-600',
+  ON_HOLD: 'text-amber-600',
+  COMPLETED: 'text-slate-600',
+  ARCHIVED: 'text-red-600',
+};
+
+// ============ PRIORITY COLORS ============
+export const PRIORITY_COLORS: Record<string, string> = {
+  LOW: 'text-slate-500',
+  MEDIUM: 'text-amber-600',
+  HIGH: 'text-orange-600',
+  CRITICAL: 'text-red-600',
+};
+
+// ============ TEAM ROLE COLORS ============
+export const ROLE_COLORS: Record<string, string> = {
+  OWNER: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  ADMIN: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  MANAGER: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  MEMBER: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400',
+  SUPER_ADMIN: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  TEACHER: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  STUDENT: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  EXAMINER: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+};

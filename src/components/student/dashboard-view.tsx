@@ -108,7 +108,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 export function StudentDashboardView() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavStore((s) => s.navigate);
-  const profile = (user as Record<string, unknown>)?.studentProfile as { id: string; dateOfBirth?: string } | undefined;
+  const profile = (user as unknown as Record<string, unknown>)?.studentProfile as { id: string; dateOfBirth?: string } | undefined;
 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [activeCompetitions, setActiveCompetitions] = useState<ActiveCompetition[]>([]);

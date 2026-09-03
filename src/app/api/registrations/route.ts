@@ -113,12 +113,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine category if not specified
-    let targetCategoryId = categoryId;
+    let targetCategoryId: string | null | undefined = categoryId;
     if (!targetCategoryId) {
       const matchingCategory = competition.categories.find(
         (c) => age >= c.minAge && age <= c.maxAge
       );
-      targetCategoryId = matchingCategory?.id || null;
+      targetCategoryId = matchingCategory?.id ?? null;
     }
 
     // Generate registration number

@@ -82,26 +82,19 @@ async function handleGetRegistrationTrend() {
   const now = new Date();
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-  const rawResults: { month: string; count: number }[] = await db.$queryRaw`
-    SELECT
-      strftime('%Y-%m', "registeredAt") as month,
-      COUNT(*) as count
-    FROM "Registration"
-    WHERE "registeredAt" >= ${twelveMonthsAgo.toISOString()}
-    GROUP BY strftime('%Y-%m', "registeredAt")
-    ORDER BY month ASC
-  `;
+  // Use Prisma ORM instead of raw SQL for cross-database compatibility
+  const registrations = await db.registration.findMany({
+    where: { registeredAt: { gte: twelveMonthsAgo } },
+    select: { registeredAt: true },
+  });
 
-  // Fill in months with zero counts
+  // Fill in months with counts
   const trend: { month: string; count: number }[] = [];
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthStr = d.toISOString().slice(0, 7);
-    const found = rawResults.find((r) => r.month === monthStr);
-    trend.push({
-      month: monthStr,
-      count: found ? found.count : 0,
-    });
+    const count = registrations.filter(r => r.registeredAt.toISOString().slice(0, 7) === monthStr).length;
+    trend.push({ month: monthStr, count });
   }
 
   return Response.json({ success: true, data: trend });

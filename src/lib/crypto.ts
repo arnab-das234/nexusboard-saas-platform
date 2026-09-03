@@ -72,6 +72,8 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 /**
  * PBKDF2 key derivation (Web Crypto compatible).
  */
+import * as nodeCrypto from 'crypto';
+
 function pbkdf2(
   password: string,
   salt: string,
@@ -80,8 +82,7 @@ function pbkdf2(
   digest: string
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const crypto = require('crypto');
-    crypto.pbkdf2(password, salt, iterations, keyLength, digest, (err: Error | null, derivedKey: Buffer) => {
+    nodeCrypto.pbkdf2(password, salt, iterations, keyLength, digest, (err: Error | null, derivedKey: Buffer) => {
       if (err) reject(err);
       else resolve(derivedKey);
     });

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     // If published and not SPECIFIC_USERS, create UserNotification for all matching users
     if (status === 'PUBLISHED' && audience !== 'SPECIFIC_USERS') {
-      await createUserNotificationsForAnnouncement(announcement.id, audience, competitionId, title, message);
+      await createUserNotificationsForAnnouncement(announcement.id, audience, competitionId ?? null, title, message);
     }
 
     return Response.json({ success: true, data: announcement, message: 'Announcement created successfully' }, { status: 201 });
@@ -182,7 +182,7 @@ async function handlePublish(request: NextRequest) {
 
   // Create user notifications if not SPECIFIC_USERS
   if (updated.audience !== 'SPECIFIC_USERS') {
-    await createUserNotificationsForAnnouncement(updated.id, updated.audience, updated.competitionId, updated.title, updated.message);
+    await createUserNotificationsForAnnouncement(updated.id, updated.audience, updated.competitionId ?? null, updated.title, updated.message);
   }
 
   return Response.json({ success: true, data: updated, message: 'Announcement published' });

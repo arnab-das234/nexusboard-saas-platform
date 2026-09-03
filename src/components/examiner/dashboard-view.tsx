@@ -166,8 +166,8 @@ export function ExaminerDashboardView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const examinerId = (user as Record<string, unknown> | null)?.examinerProfile
-    ? ((user as Record<string, unknown>).examinerProfile as { id: string }).id
+  const examinerId = (user as unknown as Record<string, unknown> | null)?.examinerProfile
+    ? ((user as unknown as Record<string, unknown>).examinerProfile as { id: string }).id
     : user?.id;
 
   async function loadData() {
@@ -220,8 +220,8 @@ export function ExaminerDashboardView() {
   if (error) return <ErrorState message={error} onRetry={loadData} />;
 
   const hasNoData = evaluations.length === 0;
-  const specialization = (user as Record<string, unknown> | null)?.examinerProfile
-    ? ((user as Record<string, unknown>).examinerProfile as { specialization?: string }).specialization || ''
+  const specialization = (user as unknown as Record<string, unknown> | null)?.examinerProfile
+    ? ((user as unknown as Record<string, unknown>).examinerProfile as { specialization?: string }).specialization || ''
     : '';
 
   return (

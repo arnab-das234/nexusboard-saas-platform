@@ -54,7 +54,7 @@ function FormField({ icon: Icon, label, name, value, onChange, type = 'text', re
 export function TeacherAddStudentView() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavStore((s) => s.navigate);
-  const tp = (user as Record<string, unknown>)?.teacherProfile as { id: string; schoolName?: string; schoolAddress?: string } | undefined;
+  const tp = (user as unknown as Record<string, unknown>)?.teacherProfile as { id: string; schoolName?: string; schoolAddress?: string } | undefined;
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM, schoolName: tp?.schoolName ?? '' });

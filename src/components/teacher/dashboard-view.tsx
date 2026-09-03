@@ -107,7 +107,7 @@ function DashboardSkeleton() {
 export function TeacherDashboardView() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavStore((s) => s.navigate);
-  const tp = (user as Record<string, unknown>)?.teacherProfile as { id: string; schoolName?: string; designation?: string; employeeId?: string } | undefined;
+  const tp = (user as unknown as Record<string, unknown>)?.teacherProfile as { id: string; schoolName?: string; designation?: string; employeeId?: string } | undefined;
 
   const [registrations, setRegistrations] = useState<RegistrationRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);

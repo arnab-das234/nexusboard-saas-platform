@@ -83,7 +83,7 @@ function ProfileSkeleton() {
 
 export function StudentProfileView() {
   const user = useAuthStore((s) => s.user);
-  const sp = (user as Record<string, unknown>)?.studentProfile as Record<string, string> | undefined;
+  const sp = (user as unknown as Record<string, unknown>)?.studentProfile as Record<string, string> | undefined;
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -97,7 +97,7 @@ export function StudentProfileView() {
       const p: ProfileData = {
         name: user?.name ?? '',
         email: user?.email ?? '',
-        phone: (user as Record<string, unknown>)?.phone as string ?? '',
+        phone: (user as unknown as Record<string, unknown>)?.phone as string ?? '',
         dateOfBirth: sp?.dateOfBirth ?? '',
         gender: sp?.gender ?? '',
         address: sp?.address ?? '',

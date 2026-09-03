@@ -39,7 +39,7 @@ function ResultsSkeleton() {
 
 export function StudentResultsView() {
   const user = useAuthStore((s) => s.user);
-  const sp = (user as Record<string, unknown>)?.studentProfile as { id: string } | undefined;
+  const sp = (user as unknown as Record<string, unknown>)?.studentProfile as { id: string } | undefined;
 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);

@@ -3,21 +3,36 @@ import { db } from '@/lib/db';
 
 export async function GET() {
   try {
-    const workspace = await db.workspace.findFirst({ orderBy: { createdAt: 'asc' } });
-    if (!workspace) return NextResponse.json([]);
-
-    const members = await db.workspaceMember.findMany({
-      where: { workspaceId: workspace.id },
-      include: { user: { select: { id: true, name: true, email: true, avatar: true, isActive: true } } },
-      orderBy: { joinedAt: 'asc' },
+    // Get all users with their roles
+    const usersWithRoles = await db.user.findMany({
+      where: { isActive: true },
+      include: {
+        roles: {
+          include: { role: { select: { name: true } } },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
     });
 
-    const membersWithTasks = await Promise.all(members.map(async (m) => {
-      const taskCount = await db.task.count({ where: { assigneeId: m.userId } });
-      return { ...m, taskCount };
-    }));
+    const members = usersWithRoles.map(u => {
+      const primaryRole = u.roles[0]?.role?.name || 'STUDENT';
+      return {
+        id: u.id,
+        userId: u.id,
+        role: primaryRole,
+        joinedAt: u.roles[0]?.assignedAt?.toISOString() ?? u.createdAt.toISOString(),
+        taskCount: 0, // Could be enhanced with actual activity counts
+        user: {
+          id: u.id,
+          name: u.name || u.email.split('@')[0],
+          email: u.email,
+          avatar: u.avatar,
+          isActive: u.isActive,
+        },
+      };
+    });
 
-    return NextResponse.json(membersWithTasks);
+    return NextResponse.json(members);
   } catch (error) {
     console.error('Team GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
@@ -27,28 +42,47 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const workspace = await db.workspace.findFirst({ orderBy: { createdAt: 'asc' } });
-    if (!workspace) return NextResponse.json({ error: 'No workspace' }, { status: 400 });
+    if (!body.email?.trim() || !body.email.includes('@')) {
+      return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
+    }
 
     // Check if user already exists
     let user = await db.user.findUnique({ where: { email: body.email } });
     if (!user) {
-      // Create a placeholder user
       const name = body.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       user = await db.user.create({
-        data: { email: body.email, passwordHash: 'invited', name },
+        data: { email: body.email, passwordHash: 'invited-pending-setup', name },
       });
     }
 
-    // Check if already a member
-    const existing = await db.workspaceMember.findUnique({ where: { userId_workspaceId: { userId: user.id, workspaceId: workspace.id } } });
-    if (existing) return NextResponse.json({ error: 'Already a member' }, { status: 409 });
+    // Assign role
+    const roleName = body.role || 'STUDENT';
+    const role = await db.role.findUnique({ where: { name: roleName } });
+    if (role) {
+      const existingRole = await db.userRole.findUnique({
+        where: { userId_roleId: { userId: user.id, roleId: role.id } },
+      });
+      if (!existingRole) {
+        await db.userRole.create({
+          data: { userId: user.id, roleId: role.id },
+        });
+      }
+    }
 
-    const member = await db.workspaceMember.create({
-      data: { userId: user.id, workspaceId: workspace.id, role: body.role || 'MEMBER' },
-    });
-
-    return NextResponse.json(member, { status: 201 });
+    return NextResponse.json({
+      id: user.id,
+      userId: user.id,
+      role: roleName,
+      joinedAt: new Date().toISOString(),
+      taskCount: 0,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        isActive: user.isActive,
+      },
+    }, { status: 201 });
   } catch (error) {
     console.error('Team POST error:', error);
     return NextResponse.json({ error: 'Failed to invite' }, { status: 500 });
@@ -58,14 +92,23 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const workspace = await db.workspace.findFirst({ orderBy: { createdAt: 'asc' } });
-    if (!workspace) return NextResponse.json({ error: 'No workspace' }, { status: 400 });
+    if (!body.userId || !body.role) {
+      return NextResponse.json({ error: 'userId and role required' }, { status: 400 });
+    }
 
-    const member = await db.workspaceMember.findFirst({ where: { userId: body.userId, workspaceId: workspace.id } });
-    if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+    // Find or create the target role
+    let role = await db.role.findUnique({ where: { name: body.role } });
+    if (!role) {
+      role = await db.role.create({ data: { name: body.role } });
+    }
 
-    const updated = await db.workspaceMember.update({ where: { id: member.id }, data: { role: body.role } });
-    return NextResponse.json(updated);
+    // Remove existing roles and assign new one
+    await db.userRole.deleteMany({ where: { userId: body.userId } });
+    await db.userRole.create({
+      data: { userId: body.userId, roleId: role.id },
+    });
+
+    return NextResponse.json({ success: true, role: body.role });
   } catch (error) {
     console.error('Team PUT error:', error);
     return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
@@ -78,13 +121,12 @@ export async function DELETE(req: NextRequest) {
     const userId = searchParams.get('userId');
     if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
 
-    const workspace = await db.workspace.findFirst({ orderBy: { createdAt: 'asc' } });
-    if (!workspace) return NextResponse.json({ error: 'No workspace' }, { status: 400 });
+    // Deactivate user instead of deleting
+    await db.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
 
-    const member = await db.workspaceMember.findFirst({ where: { userId, workspaceId: workspace.id } });
-    if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
-
-    await db.workspaceMember.delete({ where: { id: member.id } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Team DELETE error:', error);

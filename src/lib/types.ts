@@ -224,6 +224,42 @@ export interface DashboardStats {
   resultsPublished: number;
 }
 
+// ============ PROJECT (Competition-mapped) ============
+export type ProjectStatus = 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+export type ProjectPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface Project {
+  id: string;
+  name: string;
+  key: string;
+  description: string | null;
+  status: ProjectStatus;
+  priority: ProjectPriority;
+  budget: number | null;
+  spent: number | null;
+  progress: number;
+  taskCount: number;
+  createdAt: string;
+}
+
+// ============ TEAM MEMBER ============
+export type TeamRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'MEMBER';
+
+export interface TeamMember {
+  id: string;
+  userId: string;
+  role: string;
+  joinedAt: string;
+  taskCount: number;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar: string | null;
+    isActive: boolean;
+  };
+}
+
 // ============ USER SESSION ============
 export interface UserSession {
   id: string;

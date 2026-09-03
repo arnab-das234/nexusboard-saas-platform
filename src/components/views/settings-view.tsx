@@ -25,7 +25,7 @@ export function SettingsView() {
 
   useEffect(() => {
     if (user) {
-      setForm({ name: user.name, bio: user.bio ?? '', phone: user.phone ?? '', timezone: user.timezone });
+      setForm({ name: user.name ?? '', bio: '', phone: '', timezone: 'Asia/Calcutta' });
     }
   }, [user]);
 
@@ -38,7 +38,7 @@ export function SettingsView() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
-        updateUser(form);
+        updateUser({ name: form.name });
         toast.success('Profile updated');
       } else toast.error('Failed to update');
     } catch { toast.error('Network error'); } finally { setLoading(false); }
