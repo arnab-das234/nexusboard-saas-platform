@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -17,6 +17,7 @@ model User {
   phone         String?
   avatar        String?
   emailVerified Boolean   @default(false)
+  phoneVerified Boolean   @default(false)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -32,6 +33,7 @@ model User {
   emailTokens     EmailVerificationToken[]
   passwordTokens  PasswordResetToken[]
   userNotifications UserNotification[]
+  otpVerifications  OtpVerification[]
 
   @@index([email])
   @@index([isActive])
@@ -551,4 +553,27 @@ model ScoringConfig {
   updatedAt       DateTime @updatedAt
 
   competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+}
+
+// ============ OTP VERIFICATION ============
+
+model OtpVerification {
+  id          String   @id @default(cuid())
+  userId      String?
+  email       String?
+  phone       String?
+  otpCode     String
+  otpType     String   // EMAIL | PHONE
+  purpose     String   // REGISTER | LOGIN | RESET_PASSWORD
+  isVerified  Boolean  @default(false)
+  expiresAt   DateTime
+  verifiedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([phone])
+  @@index([otpCode])
+  @@index([expiresAt])
 }

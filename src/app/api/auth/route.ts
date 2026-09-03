@@ -88,8 +88,18 @@ export async function POST(request: NextRequest) {
         return handleRegister(request);
       case 'verify-email':
         return handleVerifyEmail(request);
+      case 'send-email-otp':
+        return handleSendEmailOtp(request);
+      case 'verify-email-otp':
+        return handleVerifyEmailOtp(request);
+      case 'send-mobile-otp':
+        return handleSendMobileOtp(request);
+      case 'verify-mobile-otp':
+        return handleVerifyMobileOtp(request);
+      case 'check-email':
+        return handleCheckEmail(request);
       default:
-        return errorResponse('Invalid action. Use: login, register, verify-email', 400);
+        return errorResponse('Invalid action. Use: login, register, verify-email, send-email-otp, verify-email-otp, send-mobile-otp, verify-mobile-otp, check-email', 400);
     }
   } catch (error: unknown) {
     // Never expose internal errors (OWASP A09)
@@ -117,6 +127,7 @@ async function handleLogin(request: NextRequest) {
   const { email, password } = parsed.data;
   const ip = getClientIp(request);
   const emailHash = hashEmail(email);
+  const encryptedEmail = encryptSearchable(email.toLowerCase());
 
   // Rate limit: max 5 attempts per minute per IP+email
   const rateCheck = rateLimit(`login:${ip}:${emailHash}`, RATE_LIMITS.login);
@@ -126,20 +137,26 @@ async function handleLogin(request: NextRequest) {
     });
   }
 
-  // Lookup by email hash (encrypted field)
-  const user = await db.user.findFirst({
-    where: { email: emailHash },
-    include: {
-      roles: { include: { role: true } },
-      studentProfile: true,
-      teacherProfile: true,
-      examinerProfile: true,
-    },
-  });
+  // Lookup by encrypted email (stored via encryptSearchable during registration)
+  type UserWithIncludes = Awaited<ReturnType<typeof db.user.findFirst<{
+    include: { roles: { include: { role: true } }; studentProfile: true; teacherProfile: true; examinerProfile: true };
+  }>>>;
+  
+  let matchedUser: UserWithIncludes = null;
+  if (encryptedEmail) {
+    matchedUser = await db.user.findFirst({
+      where: { email: encryptedEmail },
+      include: {
+        roles: { include: { role: true } },
+        studentProfile: true,
+        teacherProfile: true,
+        examinerProfile: true,
+      },
+    });
+  }
 
   // Also check by plain email (for migration from unencrypted data)
-  let matchedUser = user;
-  if (!user) {
+  if (!matchedUser) {
     const legacyUser = await db.user.findUnique({
       where: { email: email.toLowerCase() },
       include: {
@@ -248,10 +265,11 @@ async function handleRegister(request: NextRequest) {
 
   // Check duplicate email (check both encrypted and plain formats)
   const emailHash = hashEmail(email);
-  const existingHashed = await db.user.findFirst({ where: { email: emailHash } });
+  const encryptedEmailLookup = encryptSearchable(email.toLowerCase());
+  const existingEncrypted = encryptedEmailLookup ? await db.user.findFirst({ where: { email: encryptedEmailLookup } }) : null;
   const existingPlain = await db.user.findUnique({ where: { email: email.toLowerCase() } });
 
-  if (existingHashed || existingPlain) {
+  if (existingEncrypted || existingPlain) {
     return errorResponse('An account with this email already exists', 409);
   }
 
@@ -398,4 +416,225 @@ async function handleVerifyEmail(request: NextRequest) {
   });
 
   return NextResponse.json({ success: true, message: 'Email verified successfully' });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHECK EMAIL AVAILABILITY
+// ═══════════════════════════════════════════════════════════════
+async function handleCheckEmail(request: NextRequest) {
+  const body = await request.json();
+  const email = body.email as string;
+
+  if (!email || !z.string().email().safeParse(email).success) {
+    return errorResponse('Invalid email format', 400);
+  }
+
+  const emailHash = hashEmail(email);
+  const encryptedEmailLookup = encryptSearchable(email.toLowerCase());
+  const existingEncrypted = encryptedEmailLookup ? await db.user.findFirst({ where: { email: encryptedEmailLookup } }) : null;
+  const existingPlain = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+
+  if (existingEncrypted || existingPlain) {
+    return NextResponse.json({ success: true, data: { available: false } });
+  }
+
+  return NextResponse.json({ success: true, data: { available: true } });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SEND EMAIL OTP
+// ═══════════════════════════════════════════════════════════════
+async function handleSendEmailOtp(request: NextRequest) {
+  const body = await request.json();
+  const email = body.email as string;
+
+  if (!email || !z.string().email().safeParse(email).success) {
+    return errorResponse('Invalid email format', 400);
+  }
+
+  const ip = getClientIp(request);
+  const rateCheck = rateLimit(`email-otp:${ip}:${email}`, { maxRequests: 3, windowMs: 60_000, message: 'Too many OTP requests. Try again later.' });
+  if (!rateCheck.allowed) {
+    return errorResponse('Too many OTP requests. Try again later.', 429, { retryAfterMs: rateCheck.retryAfterMs });
+  }
+
+  // Check if email already registered
+  const emailHash = hashEmail(email);
+  const existingHashed = await db.user.findFirst({ where: { email: emailHash } });
+  const existingPlain = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+  if (existingHashed || existingPlain) {
+    return errorResponse('An account with this email already exists', 409);
+  }
+
+  // Generate 6-digit OTP
+  const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+  // Invalidate previous unused OTPs for this email
+  await db.otpVerification.updateMany({
+    where: { email: email.toLowerCase(), otpType: 'EMAIL', purpose: 'REGISTER', isVerified: false },
+    data: { isVerified: true }, // Mark as used to invalidate
+  });
+
+  await db.otpVerification.create({
+    data: {
+      email: email.toLowerCase(),
+      otpCode,
+      otpType: 'EMAIL',
+      purpose: 'REGISTER',
+      expiresAt,
+    },
+  });
+
+  // In production, send via email service (Resend, etc.)
+  // For now, return OTP in response for development (REMOVE IN PRODUCTION)
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  return NextResponse.json({
+    success: true,
+    message: 'Verification code sent to your email',
+    ...(isDev ? { _devOtp: otpCode } : {}),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VERIFY EMAIL OTP
+// ═══════════════════════════════════════════════════════════════
+async function handleVerifyEmailOtp(request: NextRequest) {
+  const body = await request.json();
+  const { email, otpCode } = body as { email?: string; otpCode?: string };
+
+  if (!email || !otpCode) {
+    return errorResponse('Email and OTP code are required', 400);
+  }
+
+  const otpRecord = await db.otpVerification.findFirst({
+    where: {
+      email: email.toLowerCase(),
+      otpType: 'EMAIL',
+      purpose: 'REGISTER',
+      isVerified: false,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!otpRecord) {
+    return errorResponse('OTP expired or not found. Please request a new one.', 400);
+  }
+
+  // Rate limit OTP attempts
+  const ip = getClientIp(request);
+  const rateCheck = rateLimit(`verify-email-otp:${ip}:${email}`, { maxRequests: 5, windowMs: 60_000, message: 'Too many verification attempts.' });
+  if (!rateCheck.allowed) {
+    return errorResponse('Too many verification attempts.', 429);
+  }
+
+  if (otpRecord.otpCode !== otpCode) {
+    return errorResponse('Invalid verification code', 400);
+  }
+
+  // Mark as verified
+  await db.otpVerification.update({
+    where: { id: otpRecord.id },
+    data: { isVerified: true, verifiedAt: new Date() },
+  });
+
+  return NextResponse.json({ success: true, message: 'Email verified successfully' });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SEND MOBILE OTP (Dummy - SMS integration placeholder)
+// ═══════════════════════════════════════════════════════════════
+async function handleSendMobileOtp(request: NextRequest) {
+  const body = await request.json();
+  const phone = body.phone as string;
+
+  if (!phone || !/^\+?[0-9]{10,15}$/.test(phone.replace(/[\s-]/g, ''))) {
+    return errorResponse('Invalid phone number format', 400);
+  }
+
+  const cleanPhone = phone.replace(/[\s-]/g, '');
+  const ip = getClientIp(request);
+  const rateCheck = rateLimit(`mobile-otp:${ip}:${cleanPhone}`, { maxRequests: 3, windowMs: 60_000, message: 'Too many OTP requests. Try again later.' });
+  if (!rateCheck.allowed) {
+    return errorResponse('Too many OTP requests. Try again later.', 429, { retryAfterMs: rateCheck.retryAfterMs });
+  }
+
+  // Generate 6-digit OTP
+  const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+  // Invalidate previous unused OTPs for this phone
+  await db.otpVerification.updateMany({
+    where: { phone: cleanPhone, otpType: 'PHONE', purpose: 'REGISTER', isVerified: false },
+    data: { isVerified: true },
+  });
+
+  await db.otpVerification.create({
+    data: {
+      phone: cleanPhone,
+      otpCode,
+      otpType: 'PHONE',
+      purpose: 'REGISTER',
+      expiresAt,
+    },
+  });
+
+  // DUMMY SMS - In production, integrate with SMS provider (Twilio, MSG91, etc.)
+  // console.log(`[SMS DUMMY] OTP ${otpCode} sent to ${cleanPhone}`);
+
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  return NextResponse.json({
+    success: true,
+    message: 'Verification code sent to your mobile',
+    ...(isDev ? { _devOtp: otpCode } : {}),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VERIFY MOBILE OTP
+// ═══════════════════════════════════════════════════════════════
+async function handleVerifyMobileOtp(request: NextRequest) {
+  const body = await request.json();
+  const { phone, otpCode } = body as { phone?: string; otpCode?: string };
+
+  if (!phone || !otpCode) {
+    return errorResponse('Phone number and OTP code are required', 400);
+  }
+
+  const cleanPhone = phone.replace(/[\s-]/g, '');
+
+  const otpRecord = await db.otpVerification.findFirst({
+    where: {
+      phone: cleanPhone,
+      otpType: 'PHONE',
+      purpose: 'REGISTER',
+      isVerified: false,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!otpRecord) {
+    return errorResponse('OTP expired or not found. Please request a new one.', 400);
+  }
+
+  const ip = getClientIp(request);
+  const rateCheck = rateLimit(`verify-mobile-otp:${ip}:${cleanPhone}`, { maxRequests: 5, windowMs: 60_000, message: 'Too many verification attempts.' });
+  if (!rateCheck.allowed) {
+    return errorResponse('Too many verification attempts.', 429);
+  }
+
+  if (otpRecord.otpCode !== otpCode) {
+    return errorResponse('Invalid verification code', 400);
+  }
+
+  await db.otpVerification.update({
+    where: { id: otpRecord.id },
+    data: { isVerified: true, verifiedAt: new Date() },
+  });
+
+  return NextResponse.json({ success: true, message: 'Mobile number verified successfully' });
 }
