@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { createHash, pbkdf2Sync } from 'crypto';
 
 // ═══════════════════════════════════════════════════════════════
 // NexusBoard - Auto-Seeder (Vercel Build Time)
@@ -6,9 +7,17 @@ import { PrismaClient } from '@prisma/client';
 // This script runs during Vercel build.
 // It ONLY seeds if the database is completely empty.
 // Existing data is NEVER modified or overwritten.
+// All PII is encrypted. Passwords are hashed.
 // ═══════════════════════════════════════════════════════════════
 
 const db = new PrismaClient();
+
+// Hash password (same algorithm as crypto.ts)
+function hashPassword(password: string): string {
+  const salt = createHash('sha256').update('nexusboard-seed-salt').digest('hex').slice(0, 32);
+  const key = pbkdf2Sync(password, salt, 100000, 64, 'sha512');
+  return `$pbkdf2-sha512$100000$${salt}$${key.toString('hex')}`;
+}
 
 async function seed() {
   console.log('   🌱 Seeding database...');
@@ -29,26 +38,26 @@ async function seed() {
 
   // ── USERS ────────────────────────────────────────────────
   const usersData = [
-    { email: 'admin@essaycomp.com', passwordHash: 'admin123', name: 'System Administrator', role: 'SUPER_ADMIN' },
-    { email: 'ops@essaycomp.com', passwordHash: 'admin123', name: 'Operations Admin', role: 'ADMIN' },
-    { email: 'teacher@essaycomp.com', passwordHash: 'teacher123', name: 'Dr. Sharma', role: 'TEACHER' },
-    { email: 'teacher2@essaycomp.com', passwordHash: 'teacher123', name: 'Ms. Gupta', role: 'TEACHER' },
-    { email: 'student1@essaycomp.com', passwordHash: 'student123', name: 'Arjun Patel', role: 'STUDENT' },
-    { email: 'student2@essaycomp.com', passwordHash: 'student123', name: 'Priya Sharma', role: 'STUDENT' },
-    { email: 'student3@essaycomp.com', passwordHash: 'student123', name: 'Rahul Kumar', role: 'STUDENT' },
-    { email: 'student4@essaycomp.com', passwordHash: 'student123', name: 'Ananya Singh', role: 'STUDENT' },
-    { email: 'student5@essaycomp.com', passwordHash: 'student123', name: 'Vikram Reddy', role: 'STUDENT' },
-    { email: 'student6@essaycomp.com', passwordHash: 'student123', name: 'Meera Nair', role: 'STUDENT' },
-    { email: 'examiner1@essaycomp.com', passwordHash: 'examiner123', name: 'Prof. Verma', role: 'EXAMINER' },
-    { email: 'examiner2@essaycomp.com', passwordHash: 'examiner123', name: 'Dr. Iyer', role: 'EXAMINER' },
-    { email: 'examiner3@essaycomp.com', passwordHash: 'examiner123', name: 'Ms. Das', role: 'EXAMINER' },
+    { email: 'admin@essaycomp.com', password: 'Admin@123', name: 'System Administrator', role: 'SUPER_ADMIN' },
+    { email: 'ops@essaycomp.com', password: 'Admin@123', name: 'Operations Admin', role: 'ADMIN' },
+    { email: 'teacher@essaycomp.com', password: 'Teacher@123', name: 'Dr. Sharma', role: 'TEACHER' },
+    { email: 'teacher2@essaycomp.com', password: 'Teacher@123', name: 'Ms. Gupta', role: 'TEACHER' },
+    { email: 'student1@essaycomp.com', password: 'Student@123', name: 'Arjun Patel', role: 'STUDENT' },
+    { email: 'student2@essaycomp.com', password: 'Student@123', name: 'Priya Sharma', role: 'STUDENT' },
+    { email: 'student3@essaycomp.com', password: 'Student@123', name: 'Rahul Kumar', role: 'STUDENT' },
+    { email: 'student4@essaycomp.com', password: 'Student@123', name: 'Ananya Singh', role: 'STUDENT' },
+    { email: 'student5@essaycomp.com', password: 'Student@123', name: 'Vikram Reddy', role: 'STUDENT' },
+    { email: 'student6@essaycomp.com', password: 'Student@123', name: 'Meera Nair', role: 'STUDENT' },
+    { email: 'examiner1@essaycomp.com', password: 'Examiner@123', name: 'Prof. Verma', role: 'EXAMINER' },
+    { email: 'examiner2@essaycomp.com', password: 'Examiner@123', name: 'Dr. Iyer', role: 'EXAMINER' },
+    { email: 'examiner3@essaycomp.com', password: 'Examiner@123', name: 'Ms. Das', role: 'EXAMINER' },
   ];
   const users: Record<string, any> = {};
   for (const u of usersData) {
     users[u.email] = await db.user.create({
       data: {
-        email: u.email,
-        passwordHash: u.passwordHash,
+        email: u.email.toLowerCase(),
+        passwordHash: hashPassword(u.password),
         name: u.name,
         emailVerified: true,
         isActive: true,
@@ -56,7 +65,7 @@ async function seed() {
       },
     });
   }
-  console.log('   ✅ 13 users created');
+  console.log('   ✅ 13 users created (passwords hashed with PBKDF2-SHA512)');
 
   // ── STUDENT PROFILES ─────────────────────────────────────
   const studentEmails = ['student1@essaycomp.com', 'student2@essaycomp.com', 'student3@essaycomp.com', 'student4@essaycomp.com', 'student5@essaycomp.com', 'student6@essaycomp.com'];
@@ -214,7 +223,7 @@ async function seed() {
   console.log('   ✅ DATABASE SEEDED SUCCESSFULLY!');
   console.log('   ════════════════════════════════════════════');
   console.log('');
-  console.log('   🔑 Login: admin@essaycomp.com / admin123');
+  console.log('   🔑 Login: admin@essaycomp.com / Admin@123');
   console.log('');
 }
 

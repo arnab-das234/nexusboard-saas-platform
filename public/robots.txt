@@ -1,14 +1,7 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# NexusBoard SaaS Platform
 User-agent: *
 Allow: /
+Disallow: /api/
+
+# Sitemaps
+# Sitemap: https://nexusboard.vercel.app/sitemap.xml
